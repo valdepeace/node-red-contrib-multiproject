@@ -62,15 +62,16 @@
     RED.projects = (function () {
         var projects = []
         function init(data) {
+
             RED.projects.deploy()
             $( '<span><select id="selectProjects"></select></span>' ).insertAfter(".logo");
             /*
-            $( '<span class="dropdown"><button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown"><span class="caret"></span></button>' +
-                    '<ul class="dropdown-menu">'+
-                    '<li><a href="#">Add</a></li>'+
-                    '<li><a href="#">Modify</a></li>'+
-                    '<li><a href="#">Delete</a></li></ul></span>' ).insertAfter( "#selectProjects" );
-                    */
+             $( '<span class="dropdown"><button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown"><span class="caret"></span></button>' +
+             '<ul class="dropdown-menu">'+
+             '<li><a href="#">Add</a></li>'+
+             '<li><a href="#">Modify</a></li>'+
+             '<li><a href="#">Delete</a></li></ul></span>' ).insertAfter( "#selectProjects" );
+             */
             projects = {}
             $('#selectProjects')
             $.each(data, function (key, value) {
@@ -89,10 +90,13 @@
         }
         function cleanWorkspace() {
             var workspace = RED.nodes.getWorkspaceOrder()
+            var length=workspace.length
             if (workspace.length > 1) {
-                for (var i = 1; i < workspace.length; i++) {
+                for (var i = 1; i < length; i++) {
                     RED.workspaces.remove(RED.nodes.workspace(workspace[i]))
+                    RED.tray.close();
                     RED.nodes.removeWorkspace(workspace[i])
+
                 }
             }
         }
@@ -108,9 +112,17 @@
                 dataType: 'json',
                 success: function (nodes) {
                     var workspace = RED.nodes.getWorkspaceOrder()
+                    var length=workspace.length
+                    for (var i = 1; i < length; i++) {
+                        RED.workspaces.remove(RED.nodes.workspace(workspace[i]))
+                        RED.tray.close();
+                        RED.nodes.removeWorkspace(workspace[i])
+
+                    }
                     RED.nodes.import(nodes);
                     RED.nodes.dirty(false);
                     RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+                    RED.tray.close();
                     RED.nodes.removeWorkspace(workspace[0])
                     RED.view.redraw(true);
                     RED.comms.subscribe("status/#", function (topic, msg) {
@@ -196,7 +208,7 @@
         }
 
     })();
-    (function loadProjects() {
+    (function() {
         $.ajax({
             headers: {
                 "Accept":"application/json"
@@ -297,11 +309,12 @@ RED.projects.deploy=function() {
             var nns = RED.nodes.createCompleteNodeSet();
             var projects = {
                 "id": $("#selectProjects").val(),
-                "label": $("#selectProjects").text(),
+                "label": $("#selectProjects option:selected").text(),
                 "type":"project",
                 "flows": []
             }
-
+            console.log(projects.id)
+            console.log(projects.label)
 
             nns.forEach(function (e, i, a) {
                 projects.flows.push(e.id)
