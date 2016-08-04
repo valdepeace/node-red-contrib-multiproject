@@ -1,0 +1,369 @@
+<!--
+  Copyright 2013, 2015 IBM Corp.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/x-red" data-template-name="project">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-envelope"></i> Name Project</label>
+        <input type="text" id="node-config-input-name" placeholder="Name project">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="project">
+    <p>Sends the <code>msg.payload</code> as an email, with a subject of <code>msg.topic</code>.</p>
+    <p>The default message recipient can be configured in the node, if it is left
+    blank it should be set using the <code>msg.to</code> property of the incoming message. If left blank
+    you can also specify <code>msg.cc</code> and/or <code>msg.bcc</code> properties.</p>
+    <p>The payload can be html format.</p>
+    <p>If the payload is a binary buffer then it will be converted to an attachment.
+    The filename should be set using <code>msg.filename</code>. Optionally <code>msg.description</code> can be added for the body text.</p>
+    <p>Alternatively you may provide <code>msg.attachments</code> which should contain an array of one or
+    more attachments in <a href="https://www.npmjs.com/package/nodemailer#attachments" target="_new">nodemailer</a> format.</p>
+    <p>If required by your recipient you may also pass in a <code>msg.envelope</code> object, typically containing extra from and to properties.</p>
+    <p>Note: uses SMTP with SSL to port 465.</p>
+</script>
+
+<script type="text/javascript">
+    (function() {
+        RED.nodes.registerType('project',{
+            inputs:0,
+            outputs:0,
+            category:'config',
+            label: function() {
+                return this.label||"project";
+            },
+            labelStyle: function() {
+                return (this.dname||!this.topic)?"node_label_italic":"";
+            },
+            oneditprepare: function() {
+                if (this.credentials.global) {
+                    $('#node-tip').show();
+                } else {
+                    $('#node-tip').hide();
+                }
+            }
+        });
+    })();
+</script>
+<!-- *************************************** UI PROJECTS ***************************** -->
+<script type="text/javascript">
+    RED.projects = (function () {
+        var projects = []
+        function init(data) {
+            RED.projects.deploy()
+            $( '<span><select id="selectProjects"></select></span>' ).insertAfter(".logo");
+            /*
+            $( '<span class="dropdown"><button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown"><span class="caret"></span></button>' +
+                    '<ul class="dropdown-menu">'+
+                    '<li><a href="#">Add</a></li>'+
+                    '<li><a href="#">Modify</a></li>'+
+                    '<li><a href="#">Delete</a></li></ul></span>' ).insertAfter( "#selectProjects" );
+                    */
+            projects = {}
+            $('#selectProjects')
+            $.each(data, function (key, value) {
+                projects[value.id] = value
+                $('#selectProjects').append($("<option>", {
+                    value: value.id,
+                    text: value.label
+
+                }));
+            });
+            $('#selectProjects').change(function () {
+                var id = $(this).val()
+                cleanWorkspace()
+                loadFlows(id)
+            })
+        }
+        function cleanWorkspace() {
+            var workspace = RED.nodes.getWorkspaceOrder()
+            if (workspace.length > 1) {
+                for (var i = 1; i < workspace.length; i++) {
+                    RED.workspaces.remove(RED.nodes.workspace(workspace[i]))
+                    RED.nodes.removeWorkspace(workspace[i])
+                }
+            }
+        }
+
+        function loadFlows(id) {
+            $.ajax({
+                headers: {
+                    "Accept": "application/json"
+                },
+                cache: false,
+                url: 'projects/' + id,
+                data: {id: id},
+                dataType: 'json',
+                success: function (nodes) {
+                    var workspace = RED.nodes.getWorkspaceOrder()
+                    RED.nodes.import(nodes);
+                    RED.nodes.dirty(false);
+                    RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+                    RED.nodes.removeWorkspace(workspace[0])
+                    RED.view.redraw(true);
+                    RED.comms.subscribe("status/#", function (topic, msg) {
+                        var parts = topic.split("/");
+                        var node = RED.nodes.node(parts[1]);
+                        if (node) {
+                            if (msg.hasOwnProperty("text")) {
+                                msg.text = node._(msg.text.toString(), {defaultValue: msg.text.toString()});
+                            }
+                            node.status = msg;
+//if (statusEnabled) {
+//    node.dirty = true;
+                            RED.view.redraw();
+//}
+                        }
+                    });
+                    RED.comms.subscribe("node/#", function (topic, msg) {
+                        var i, m;
+                        var typeList;
+                        var info;
+
+                        if (topic == "node/added") {
+                            var addedTypes = [];
+                            for (i = 0; i < msg.length; i++) {
+                                m = msg[i];
+                                var id = m.id;
+                                RED.nodes.addNodeSet(m);
+                                addedTypes = addedTypes.concat(m.types);
+                                RED.i18n.loadCatalog(id, function () {
+                                    $.get('nodes/' + id, function (data) {
+                                        $("body").append(data);
+                                    });
+                                });
+                            }
+                            if (addedTypes.length) {
+                                typeList = "<ul><li>" + addedTypes.join("</li><li>") + "</li></ul>";
+                                RED.notify(RED._("palette.event.nodeAdded", {count: addedTypes.length}) + typeList, "success");
+                            }
+                        } else if (topic == "node/removed") {
+                            for (i = 0; i < msg.length; i++) {
+                                m = msg[i];
+                                info = RED.nodes.removeNodeSet(m.id);
+                                if (info.added) {
+                                    typeList = "<ul><li>" + m.types.join("</li><li>") + "</li></ul>";
+                                    RED.notify(RED._("palette.event.nodeRemoved", {count: m.types.length}) + typeList, "success");
+                                }
+                            }
+                        } else if (topic == "node/enabled") {
+                            if (msg.types) {
+                                info = RED.nodes.getNodeSet(msg.id);
+                                if (info.added) {
+                                    RED.nodes.enableNodeSet(msg.id);
+                                    typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
+                                    RED.notify(RED._("palette.event.nodeEnabled", {count: msg.types.length}) + typeList, "success");
+                                } else {
+                                    $.get('nodes/' + msg.id, function (data) {
+                                        $("body").append(data);
+                                        typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
+                                        RED.notify(RED._("palette.event.nodeAdded", {count: msg.types.length}) + typeList, "success");
+                                    });
+                                }
+                            }
+                        } else if (topic == "node/disabled") {
+                            if (msg.types) {
+                                RED.nodes.disableNodeSet(msg.id);
+                                typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
+                                RED.notify(RED._("palette.event.nodeDisabled", {count: msg.types.length}) + typeList, "success");
+                            }
+                        }
+// Refresh flow library to ensure any examples are updated
+                        RED.library.loadFlowLibrary();
+                    });
+                }
+            });
+        }
+
+        return {
+            init: init,
+            getProjects: projects,
+            loadFlows:loadFlows,
+            cleanWorkspace:cleanWorkspace
+
+        }
+
+    })();
+    (function loadProjects() {
+        $.ajax({
+            headers: {
+                "Accept":"application/json"
+            },
+            cache: false,
+            url: 'projects',
+            success: function(data) {
+                console.log(data);
+                RED.projects.init(data);
+                RED.projects.cleanWorkspace();
+                RED.projects.loadFlows(data[Object.keys(data)[0]].id);
+            }
+
+        });
+    })()
+
+</script>
+<!-- *************************************** DEPLOY ********************************** -->
+<script type="text/javascript">
+RED.projects.deploy=function() {
+    $('#btn-deploy').unbind("click");
+    $('#btn-deploy').click(function () {
+        save();
+    });
+
+    function save(force) {
+        if (RED.nodes.dirty()) {
+            //$("#debug-tab-clear").click();  // uncomment this to auto clear debug on deploy
+
+            if (!force) {
+                var hasUnknown = false;
+                var hasInvalid = false;
+                var hasUnusedConfig = false;
+
+                var unknownNodes = [];
+                var invalidNodes = [];
+
+                RED.nodes.eachNode(function (node) {
+                    hasInvalid = hasInvalid || !node.valid;
+                    if (!node.valid) {
+                        invalidNodes.push(getNodeInfo(node));
+                    }
+                    if (node.type === "unknown") {
+                        if (unknownNodes.indexOf(node.name) == -1) {
+                            unknownNodes.push(node.name);
+                        }
+                    }
+                });
+                hasUnknown = unknownNodes.length > 0;
+
+                var unusedConfigNodes = [];
+                RED.nodes.eachConfig(function (node) {
+                    if (node.users.length === 0 && (node._def.hasUsers !== false)) {
+                        unusedConfigNodes.push(getNodeInfo(node));
+                        hasUnusedConfig = true;
+                    }
+                });
+
+                $("#node-dialog-confirm-deploy-config").hide();
+                $("#node-dialog-confirm-deploy-unknown").hide();
+                $("#node-dialog-confirm-deploy-unused").hide();
+
+                var showWarning = false;
+
+                if (hasUnknown && !ignoreDeployWarnings.unknown) {
+                    showWarning = true;
+                    $("#node-dialog-confirm-deploy-type").val("unknown");
+                    $("#node-dialog-confirm-deploy-unknown").show();
+                    $("#node-dialog-confirm-deploy-unknown-list")
+                            .html("<li>" + unknownNodes.join("</li><li>") + "</li>");
+                } else if (hasInvalid && !ignoreDeployWarnings.invalid) {
+                    showWarning = true;
+                    $("#node-dialog-confirm-deploy-type").val("invalid");
+                    $("#node-dialog-confirm-deploy-config").show();
+                    invalidNodes.sort(sortNodeInfo);
+                    $("#node-dialog-confirm-deploy-invalid-list")
+                            .html("<li>" + invalidNodes.map(function (A) {
+                                        return (A.tab ? "[" + A.tab + "] " : "") + A.label + " (" + A.type + ")"
+                                    }).join("</li><li>") + "</li>");
+
+                } else if (hasUnusedConfig && !ignoreDeployWarnings.unusedConfig) {
+                    // showWarning = true;
+                    // $( "#node-dialog-confirm-deploy-type" ).val("unusedConfig");
+                    // $( "#node-dialog-confirm-deploy-unused" ).show();
+                    //
+                    // unusedConfigNodes.sort(sortNodeInfo);
+                    // $( "#node-dialog-confirm-deploy-unused-list" )
+                    //     .html("<li>"+unusedConfigNodes.map(function(A) { return (A.tab?"["+A.tab+"] ":"")+A.label+" ("+A.type+")"}).join("</li><li>")+"</li>");
+                }
+                if (showWarning) {
+                    $("#node-dialog-confirm-deploy-hide").prop("checked", false);
+                    $("#node-dialog-confirm-deploy").dialog("open");
+                    return;
+                }
+            }
+
+
+            var nns = RED.nodes.createCompleteNodeSet();
+            var projects = {
+                "id": $("#selectProjects").val(),
+                "label": $("#selectProjects").text(),
+                "type":"project",
+                "flows": []
+            }
+
+
+            nns.forEach(function (e, i, a) {
+                projects.flows.push(e.id)
+            })
+            nns.push(projects)
+            $("#btn-deploy-icon").removeClass('fa-download');
+            $("#btn-deploy-icon").addClass('spinner');
+            RED.nodes.dirty(false);
+            var deploymentTypes = {
+                "red/images/deploy-full-o.png":"full",
+                "red/images/deploy-nodes-o.png":"nodes",
+                "red/images/deploy-flows-o.png":"flows"
+            }
+            var deploymentType=deploymentTypes[ $("#btn-deploy img").attr("src")]
+            $.ajax({
+                url: "projects",
+                type: "POST",
+                data: JSON.stringify(nns),
+                contentType: "application/json; charset=utf-8",
+                headers: {
+                    "Node-RED-Deployment-Type": deploymentType
+                }
+            }).done(function (data, textStatus, xhr) {
+                if (hasUnusedConfig) {
+                    RED.notify(
+                            '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
+                            '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
+                } else {
+                    RED.notify(RED._("deploy.successfulDeploy"), "success");
+                }
+                RED.nodes.eachNode(function (node) {
+                    if (node.changed) {
+                        node.dirty = true;
+                        node.changed = false;
+                    }
+                    if (node.credentials) {
+                        delete node.credentials;
+                    }
+                });
+                RED.nodes.eachConfig(function (confNode) {
+                    if (confNode.credentials) {
+                        delete confNode.credentials;
+                    }
+                });
+                // Once deployed, cannot undo back to a clean state
+                RED.history.markAllDirty();
+                RED.view.redraw();
+                RED.events.emit("deploy");
+            }).fail(function (xhr, textStatus, err) {
+                RED.nodes.dirty(true);
+                if (xhr.status === 401) {
+                    RED.notify(RED._("deploy.deployFailed", {message: RED._("user.notAuthorized")}), "error");
+                } else if (xhr.responseText) {
+                    RED.notify(RED._("deploy.deployFailed", {message: xhr.responseText}), "error");
+                } else {
+                    RED.notify(RED._("deploy.deployFailed", {message: RED._("deploy.errors.noResponse")}), "error");
+                }
+            }).always(function () {
+                $("#btn-deploy-icon").removeClass('spinner');
+                $("#btn-deploy-icon").addClass('fa-download');
+            });
+        }
+    }
+}
+</script>
