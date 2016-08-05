@@ -12,7 +12,6 @@ module.exports=function(RED){
         this.type=config.type || "project"
         this.flows = config.flows || []
         this.id= config.id
-
     }
     RED.nodes.registerType("project",Multiproject);
 
@@ -46,17 +45,7 @@ module.exports=function(RED){
                 }
             }
             RED.nodes.eachNode(allnodes)
-            /*
-            var tab=RED.nodes.getNode(el);
-            if(tab===null){
-                nodesProjects.push({id:el.id,label:el.label,type:el.type})
-            }else{
-                nodesProjects.push({id:tab.id,label:tab.label,type:"tab"})
-                if(tab.configs)
-                    nodesProjects=nodesProjects.concat(tab.configs)
-                nodesProjects=nodesProjects.concat(tab.nodes)
-            }
-            */
+
         })
         if(nodesProjects.length===0)
             nodesProjects.push({
