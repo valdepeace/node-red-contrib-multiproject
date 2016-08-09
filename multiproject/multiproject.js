@@ -1,5 +1,5 @@
 /**
- * Created by negrero on 02/08/2016.
+ * Created by Andres Carmona Gil for Thingtrack,sl on 02/08/2016.
  */
 http =require('http')
 
@@ -8,10 +8,11 @@ module.exports=function(RED){
     log = RED.log
     function Multiproject(config){
         RED.nodes.createNode(this,config)
-        this.label = config.label || "project 1"
+        this.name = config.name || "project 1"
         this.type=config.type || "project"
         this.flows = config.flows || []
         this.id= config.id
+
     }
     RED.nodes.registerType("project",Multiproject);
 
@@ -33,6 +34,7 @@ module.exports=function(RED){
             if(id==node.id)
                 projects=node
         }
+
         RED.nodes.eachNode(findProject)
         projects.flows.forEach(function(el,ix,ar){
             function allnodes(no){
@@ -45,7 +47,17 @@ module.exports=function(RED){
                 }
             }
             RED.nodes.eachNode(allnodes)
-
+            /*
+             var tab=RED.nodes.getNode(el);
+             if(tab===null){
+             nodesProjects.push({id:el.id,label:el.label,type:el.type})
+             }else{
+             nodesProjects.push({id:tab.id,label:tab.label,type:"tab"})
+             if(tab.configs)
+             nodesProjects=nodesProjects.concat(tab.configs)
+             nodesProjects=nodesProjects.concat(tab.nodes)
+             }
+             */
         })
         if(nodesProjects.length===0)
             nodesProjects.push({
@@ -53,6 +65,7 @@ module.exports=function(RED){
                 id:RED.util.generateId(),
                 label:"flow 1"
             })
+        nodesProjects.push(projects)
         res.json(nodesProjects)
     })
 

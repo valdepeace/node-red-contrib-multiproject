@@ -1,4 +1,5 @@
 <!--
+
   Copyright 2013, 2015 IBM Corp.
 
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +17,8 @@
 
 <script type="text/x-red" data-template-name="project">
     <div class="form-row">
-        <label for="node-config-input-name"><i class="fa fa-envelope"></i> Name Project</label>
-        <input type="text" id="node-config-input-name" placeholder="Name project">
+        <label for="node-input-name"><i class="fa fa-envelope"></i> Name Project</label>
+        <input type="text" id="node-input-name" placeholder="Name project">
     </div>
 </script>
 
@@ -41,11 +42,11 @@
             inputs:0,
             outputs:0,
             category:'config',
-            label: function() {
-                return this.label||"project";
+            default:{
+                name:"project 1"
             },
-            labelStyle: function() {
-                return (this.dname||!this.topic)?"node_label_italic":"";
+            label: function() {
+                return this.name||"project 1";
             },
             oneditprepare: function() {
                 if (this.credentials.global) {
@@ -58,187 +59,9 @@
     })();
 </script>
 
-<!-- *************************************** UI PROJECTS ***************************** -->
+<!-- *************************************** LOAD PROJECTS ***************************** -->
 <script type="text/javascript">
-    RED.projects = (function () {
-        var projects = []
-        function init(data) {
-            RED.projects.deploy()
-            $( '<span id="label-projects" class="logo" style="margin-left:20%;font-size:1em;">Projects:</span>' ).insertAfter(".logo");
-            projects = {}
-            var options=[]
-            var selected=false
-            $.each(data, function (key, value) {
-                if(selected){
-                    options.push({
-                                id:value.id,
-                                label: value.label,
-                                onselect:function(s) {
-                                    if(s===undefined || s){
-                                        $('#label-projects').html('<p style="font-size: 1.3em">Project: '+value.label+'</p>')
-                                        loadFlows(value.id)}}
-                            }
 
-                    )
-                }else{
-                    selected=true
-                    options.push({
-                        id:value.id,
-                        label: value.label,
-                        selected: true,
-                        onselect:function(s) {
-                            if(s===undefined || s){
-                                $('#label-projects').html('<p style="font-size: 1.3em">Project: '+value.label+'</p>')
-                                loadFlows(value.id)
-                            }
-
-                        }}
-
-                    )
-                }
-            });
-            $('<li><span class="projects-button-group button-group">'+
-                    '<a id="btn-projects" href="#" class="btn-info"><span>Projects</span></a>'+
-                    '<a id="btn-projects-options" data-toggle="dropdown" class="btn-info" href="#"><i class="fa fa-caret-down"></i></a>'+
-                    '</span></li>').prependTo(".header-toolbar");
-            RED.menu.init({id:"btn-projects-options",options:options})
-            /*
-             $.each(data, function (key, value) {
-             projects[value.id] = value
-             $('#selectProjects').append($("<option>", {
-             value: value.id,
-             text: value.label
-
-             }));
-             });
-             */
-            /*
-             $('#selectProjects').change(function () {
-             var id = $(this).val()
-             cleanWorkspace()
-             loadFlows(id)
-             })
-             */
-            //loadFlows($("#selectProjects").val());
-        }
-        function cleanWorkspace() {
-            var workspace = RED.nodes.getWorkspaceOrder()
-            $( '#btn-workspace-add-tab' ).trigger( "click" );
-            while(workspace.length != 1){
-                RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
-                RED.tray.close();
-                RED.nodes.removeWorkspace(workspace[0])
-            }
-        }
-
-        function loadFlows(id) {
-            $.ajax({
-                headers: {
-                    "Accept": "application/json"
-                },
-                cache: false,
-                url: 'projects/' + id,
-                data: {id: id},
-                dataType: 'json',
-                success: function (nodes) {
-                    cleanWorkspace()
-                    var workspace = RED.nodes.getWorkspaceOrder()
-                    if(workspace.length>0){
-                        RED.nodes.import(nodes);
-                        RED.nodes.dirty(false);
-                        RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
-                        RED.nodes.removeWorkspace(workspace[0])
-
-                    }else{
-                        RED.nodes.import(nodes);
-                        RED.nodes.dirty(false);
-                    }
-                    RED.view.redraw(true);
-                    RED.workspaces.refresh();
-                    RED.sidebar.config.refresh();
-                    RED.comms.subscribe("status/#", function (topic, msg) {
-                        var parts = topic.split("/");
-                        var node = RED.nodes.node(parts[1]);
-                        if (node) {
-                            if (msg.hasOwnProperty("text")) {
-                                msg.text = node._(msg.text.toString(), {defaultValue: msg.text.toString()});
-                            }
-                            node.status = msg;
-//if (statusEnabled) {
-//    node.dirty = true;
-                            RED.view.redraw();
-//}
-                        }
-                    });
-                    RED.comms.subscribe("node/#", function (topic, msg) {
-                        var i, m;
-                        var typeList;
-                        var info;
-
-                        if (topic == "node/added") {
-                            var addedTypes = [];
-                            for (i = 0; i < msg.length; i++) {
-                                m = msg[i];
-                                var id = m.id;
-                                RED.nodes.addNodeSet(m);
-                                addedTypes = addedTypes.concat(m.types);
-                                RED.i18n.loadCatalog(id, function () {
-                                    $.get('nodes/' + id, function (data) {
-                                        $("body").append(data);
-                                    });
-                                });
-                            }
-                            if (addedTypes.length) {
-                                typeList = "<ul><li>" + addedTypes.join("</li><li>") + "</li></ul>";
-                                RED.notify(RED._("palette.event.nodeAdded", {count: addedTypes.length}) + typeList, "success");
-                            }
-                        } else if (topic == "node/removed") {
-                            for (i = 0; i < msg.length; i++) {
-                                m = msg[i];
-                                info = RED.nodes.removeNodeSet(m.id);
-                                if (info.added) {
-                                    typeList = "<ul><li>" + m.types.join("</li><li>") + "</li></ul>";
-                                    RED.notify(RED._("palette.event.nodeRemoved", {count: m.types.length}) + typeList, "success");
-                                }
-                            }
-                        } else if (topic == "node/enabled") {
-                            if (msg.types) {
-                                info = RED.nodes.getNodeSet(msg.id);
-                                if (info.added) {
-                                    RED.nodes.enableNodeSet(msg.id);
-                                    typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
-                                    RED.notify(RED._("palette.event.nodeEnabled", {count: msg.types.length}) + typeList, "success");
-                                } else {
-                                    $.get('nodes/' + msg.id, function (data) {
-                                        $("body").append(data);
-                                        typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
-                                        RED.notify(RED._("palette.event.nodeAdded", {count: msg.types.length}) + typeList, "success");
-                                    });
-                                }
-                            }
-                        } else if (topic == "node/disabled") {
-                            if (msg.types) {
-                                RED.nodes.disableNodeSet(msg.id);
-                                typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
-                                RED.notify(RED._("palette.event.nodeDisabled", {count: msg.types.length}) + typeList, "success");
-                            }
-                        }
-// Refresh flow library to ensure any examples are updated
-                        RED.library.loadFlowLibrary();
-                    });
-                }
-            });
-        }
-
-        return {
-            init: init,
-            getProjects: projects,
-            loadFlows:loadFlows,
-            cleanWorkspace:cleanWorkspace
-
-        }
-
-    })();
     (function() {
         $.ajax({
             headers: {
@@ -254,191 +77,587 @@
     })()
 
 </script>
-<!-- *************************************** DEPLOY ********************************** -->
+<!-- *************************************** INIT AND DEPLOY ********************************** -->
 <script type="text/javascript">
-    RED.projects.deploy=function() {
-        var ignoreDeployWarnings = {
-            unknown: false,
-            unusedConfig: false,
-            invalid: false
-        }
-        function sortNodeInfo(A,B) {
-            if (A.tab < B.tab) { return -1;}
-            if (A.tab > B.tab) { return 1;}
-            if (A.type < B.type) { return -1;}
-            if (A.type > B.type) { return 1;}
-            if (A.name < B.name) { return -1;}
-            if (A.name > B.name) { return 1;}
-            return 0;
-        }
-        function getNodeInfo(node) {
-            var tabLabel = "";
-            if (node.z) {
-                var tab = RED.nodes.workspace(node.z);
-                if (!tab) {
-                    tab = RED.nodes.subflow(node.z);
-                    tabLabel = tab.name;
-                } else {
-                    tabLabel = tab.label;
-                }
-            }
-            var label = "";
-            if (typeof node._def.label == "function") {
-                label = node._def.label.call(node);
-            } else {
-                label = node._def.label;
-            }
-            label = label || node.id;
-            return {tab:tabLabel,type:node.type,label:label};
-        }
-        $('#btn-deploy').unbind("click");
-        $('#btn-deploy').click(function () {
-            save();
-        });
+    RED.projects = (function () {
+        var project = {}
 
-        function save(force) {
-            if (RED.nodes.dirty()) {
-                //$("#debug-tab-clear").click();  // uncomment this to auto clear debug on deploy
-
-                if (!force) {
-                    var hasUnknown = false;
-                    var hasInvalid = false;
-                    var hasUnusedConfig = false;
-
-                    var unknownNodes = [];
-                    var invalidNodes = [];
-
-                    RED.nodes.eachNode(function (node) {
-                        hasInvalid = hasInvalid || !node.valid;
-                        if (!node.valid) {
-                            invalidNodes.push(getNodeInfo(node));
+        function init(data) {
+            $("#node-dialog-confirm-deploy").after(
+                    '<div id="node-dialog-confirm-deploy-project" class="hide">'+
+                    '<form class="form-horizontal">'+
+                    '<div id="node-dialog-confirm-deploy-project-config" style="text-align: left; padding-top: 30px;">NOT SAVE PROJECT! deploy for save</div>'+
+                    '<div id="node-dialog-confirm-deploy-project-config" style="text-align: left; padding-top: 30px;" data-i18n="[prepend]deploy.confirm.improperlyConfigured;[append]deploy.confirm.confirm">'+
+                    '<ul style="font-size: 0.9em; width: 400px; margin: 10px auto; text-align: left;" id="node-dialog-confirm-deploy-project-invalid-list"></ul>'+
+                    '</div>'+
+                    '<div id="node-dialog-confirm-deploy-project-unknown" style="text-align: left; padding-top: 10px;" data-i18n="[prepend]deploy.confirm.unknown;[append]deploy.confirm.confirm">'+
+                    '<ul style="font-size: 0.9em; width: 400px; margin: 10px auto; text-align: left;" id="node-dialog-confirm-deploy-project-unknown-list"></ul>'+
+                    '</div></form></div>')
+            $( "#node-dialog-confirm-deploy-project" ).dialog({
+                title: "Not save project",
+                modal: true,
+                autoOpen: false,
+                width: 550,
+                height: "auto",
+                buttons: [
+                    {
+                        text: RED._("deploy.confirm.button.cancel"),
+                        click: function() {
+                            $( this ).dialog( "close" );
                         }
-                        if (node.type === "unknown") {
-                            if (unknownNodes.indexOf(node.name) == -1) {
-                                unknownNodes.push(node.name);
+                    },
+                    {
+                        text: "No",
+                        click: function() {
+                            var projects=$("#btn-projects-options-submenu li")
+                            projects.each(function(){
+                                var element=$(this)
+                                var link=$(this).find('a')
+                                if(link.attr("id")===project.id)
+                                    element.remove()
+                            })
+                            if(projects.length-1===1){
+                                $("#add-project").trigger("click",[true])
+                            }else{
+                                RED.nodes.dirty(false)
+                                $('#btn-projects-options-submenu li:nth-child(2)').find('a').trigger("click",[true])
                             }
+                            //deleteWorkspace(workspace);
+                            RED.tray.close();
+                            $( this ).dialog( "close" );
                         }
-                    });
-                    hasUnknown = unknownNodes.length > 0;
-
-                    var unusedConfigNodes = [];
-                    RED.nodes.eachConfig(function (node) {
-                        if (node.users.length === 0 && (node._def.hasUsers !== false)) {
-                            unusedConfigNodes.push(getNodeInfo(node));
-                            hasUnusedConfig = true;
+                    },
+                    {
+                        text: RED._("deploy.confirm.button.confirm"),
+                        class: "primary",
+                        click: function() {
+                            var ignoreChecked = $( "#node-dialog-confirm-deploy-project-hide" ).prop("checked");
+                            if (ignoreChecked) {
+                                ignoreDeployWarnings[$( "#node-dialog-confirm-deploy-project-type" ).val()] = true;
+                            }
+                            save(true);
+                            $( this ).dialog( "close" );
                         }
-                    });
-
-                    $("#node-dialog-confirm-deploy-config").hide();
-                    $("#node-dialog-confirm-deploy-unknown").hide();
-                    $("#node-dialog-confirm-deploy-unused").hide();
-
-                    var showWarning = false;
-
-                    if (hasUnknown && !ignoreDeployWarnings.unknown) {
-                        showWarning = true;
-                        $("#node-dialog-confirm-deploy-type").val("unknown");
-                        $("#node-dialog-confirm-deploy-unknown").show();
-                        $("#node-dialog-confirm-deploy-unknown-list")
-                                .html("<li>" + unknownNodes.join("</li><li>") + "</li>");
-                    } else if (hasInvalid && !ignoreDeployWarnings.invalid) {
-                        showWarning = true;
-                        $("#node-dialog-confirm-deploy-type").val("invalid");
-                        $("#node-dialog-confirm-deploy-config").show();
-                        invalidNodes.sort(sortNodeInfo);
-                        $("#node-dialog-confirm-deploy-invalid-list")
-                                .html("<li>" + invalidNodes.map(function (A) {
-                                            return (A.tab ? "[" + A.tab + "] " : "") + A.label + " (" + A.type + ")"
-                                        }).join("</li><li>") + "</li>");
-
-                    } else if (hasUnusedConfig && !ignoreDeployWarnings.unusedConfig) {
-                        // showWarning = true;
-                        // $( "#node-dialog-confirm-deploy-type" ).val("unusedConfig");
-                        // $( "#node-dialog-confirm-deploy-unused" ).show();
-                        //
-                        // unusedConfigNodes.sort(sortNodeInfo);
-                        // $( "#node-dialog-confirm-deploy-unused-list" )
-                        //     .html("<li>"+unusedConfigNodes.map(function(A) { return (A.tab?"["+A.tab+"] ":"")+A.label+" ("+A.type+")"}).join("</li><li>")+"</li>");
                     }
-                    if (showWarning) {
-                        $("#node-dialog-confirm-deploy-hide").prop("checked", false);
-                        $("#node-dialog-confirm-deploy").dialog("open");
-                        return;
+                ],
+                create: function() {
+                    $("#node-dialog-confirm-deploy-project").parent().find("div.ui-dialog-buttonpane")
+                            .prepend('<div style="height:0; vertical-align: middle; display:inline-block; margin-top: 13px; float:left;">'+
+                                    '<input style="vertical-align:top;" type="checkbox" id="node-dialog-confirm-deploy-project-hide">'+
+                                    '<label style="display:inline;" for="node-dialog-confirm-deploy-project-hide"> Not save project deploy?</label>'+
+                                    '<input type="hidden" id="node-dialog-confirm-deploy-project-type">'+
+                                    '</div>');
+                }
+            });
+
+            var nns = RED.nodes.createCompleteNodeSet();
+            RED.projects.deploy()
+            $( '<span id="label-projects" class="logo" style="margin-left:20%;font-size:1em;"></span>' ).insertAfter(".logo");
+            var options=[]
+            var selected=false
+            options.push({
+                id: "add-project",
+                label: "Add new project",
+                onselect: function (s) {
+                    if (s === undefined || s) {
+                        if(RED.nodes.dirty()){
+                            $("#node-dialog-confirm-deploy-project").dialog("open");
+                            return;
+                        }else{
+                            var projects=$("#btn-projects-options-submenu li")
+                            var proj = {
+                                id: RED.nodes.id(),
+                                type: "project",
+                                name: "Project "+projects.length,
+                                flow: []
+                            }
+                            var tab = {
+                                id: RED.nodes.id(),
+                                type: "tab",
+                                label: "Flow 1"
+                            }
+                            var element=$('<a href="#'+proj.id+'" style="font-size: 1.3em">Project: '+proj.name+'</a>').on("dblclick",onProjectDblClick);
+                            $('#label-projects').empty()
+                            element.appendTo('#label-projects')
+                            var nodes = []
+                            nodes.push(proj)
+                            nodes.push(tab)
+                            RED.menu.addItem("btn-projects-options",{
+                                id:proj.id,
+                                label:proj.name,
+                                onselect:function(s) {
+                                    if(s===undefined || s){
+                                        var element=$('<a href="#'+proj.id+'" style="font-size: 1.3em">Project: '+proj.name+'</a>').on("dblclick",onProjectDblClick);
+                                        $('#label-projects').empty()
+                                        element.appendTo('#label-projects')
+                                        loadFlows(value)}
+                                }
+                            })
+                            RED.view.redraw(true);
+                            RED.workspaces.refresh();
+                            RED.sidebar.config.refresh();
+                            launchFlows(nodes,proj,true)
+                        }
+
                     }
                 }
 
+            })
+            $.each(data, function (key, value) {
+                if(selected){
+                    options.push({
+                                id:value.id,
+                                label: value.name,
+                                onselect:function(s) {
+                                    if(s===undefined || s) {
+                                        if (RED.nodes.dirty()) {
+                                            $("#node-dialog-confirm-deploy-project").dialog("open");
+                                            return;
+                                        } else {
+                                            var element = $('<a href="#' + value.id + '" style="font-size: 1.3em">Project: ' + value.name + '</a>').on("dblclick", onProjectDblClick);
+                                            $('#label-projects').empty()
+                                            element.appendTo('#label-projects')
+                                            loadFlows(value)
+                                        }
+                                    }
+                                }
 
-                var nns = RED.nodes.createCompleteNodeSet();
-                var projects = {
-                    "id": $("#selectProjects").val(),
-                    "label": $("#selectProjects option:selected").text(),
-                    "type":"project",
-                    "flows": []
-                }
-                console.log(projects.id)
-                console.log(projects.label)
+                            }
 
-                nns.forEach(function (e, i, a) {
-                    projects.flows.push(e.id)
-                })
-                nns.push(projects)
-                $("#btn-deploy-icon").removeClass('fa-download');
-                $("#btn-deploy-icon").addClass('spinner');
-                RED.nodes.dirty(false);
-                var deploymentTypes = {
-                    "red/images/deploy-full-o.png":"full",
-                    "red/images/deploy-nodes-o.png":"nodes",
-                    "red/images/deploy-flows-o.png":"flows"
+                    )
+                }else{
+                    selected=true
+                    options.push({
+                        id:value.id,
+                        label: value.name,
+                        selected: true,
+                        onselect:function(s) {
+                            if(s===undefined || s){
+                                if(RED.nodes.dirty()){
+                                    $("#node-dialog-confirm-deploy-project").dialog("open");
+                                    return;
+                                }else {
+                                    var element = $('<a href="#' + value.id + '" style="font-size: 1.3em">Project: ' + value.name + '</a>').on("dblclick", onProjectDblClick);
+                                    $('#label-projects').empty()
+                                    element.appendTo('#label-projects')
+                                    loadFlows(value)
+                                }
+                            }
+
+                        }}
+
+                    )
                 }
-                var deploymentType=deploymentTypes[ $("#btn-deploy img").attr("src")]
-                $.ajax({
-                    url: "projects",
-                    type: "POST",
-                    data: JSON.stringify(nns),
-                    contentType: "application/json; charset=utf-8",
-                    headers: {
-                        "Node-RED-Deployment-Type": deploymentType
-                    }
-                }).done(function (data, textStatus, xhr) {
-                    if (hasUnusedConfig) {
-                        RED.notify(
-                                '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
-                                '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
-                    } else {
-                        RED.notify(RED._("deploy.successfulDeploy"), "success");
-                    }
-                    RED.nodes.eachNode(function (node) {
-                        if (node.changed) {
-                            node.dirty = true;
-                            node.changed = false;
+            });
+            $('<li><span class="projects-button-group button-group">'+
+                    '<a id="btn-projects" href="#" class="btn-info" ><span>Projects</span></a>'+
+                    '<a id="btn-projects-options" data-toggle="dropdown" class="btn-info" href="#"><i class="fa fa-caret-down"></i></a>'+
+                    '</span></li>').prependTo(".header-toolbar");
+            RED.menu.init({id:"btn-projects-options",options:options})
+
+        }
+
+        function onProjectDblClick() {
+            showRenameProjectDialog($(this).attr('href').slice(1))
+        }
+
+        function showRenameProjectDialog(id) {
+            //project = RED.nodes.node(id);
+            RED.view.state(RED.state.EDITING);
+            var trayOptions = {
+                title: "Edit project: "+project.label(),
+                buttons: [
+                    {
+                        id: "node-dialog-delete",
+                        class: 'leftButton',//+((workspace_tabs.count() == 1)?" disabled":""),
+                        text: RED._("common.label.delete"), //'<i class="fa fa-trash"></i>',
+                        click: function() {
+                            var projects=$("#btn-projects-options-submenu li")
+                            projects.each(function(){
+                                var element=$(this)
+                                var link=$(this).find('a')
+                                if(link.attr("id")===project.id)
+                                    element.remove()
+                            })
+                            if(projects.length-1===1){
+                                $("#add-project").trigger("click",[true])
+                            }else{
+                                $('#btn-projects-options-submenu li:nth-child(2)').find('a').trigger("click",[true])
+                            }
+                            //deleteWorkspace(workspace);
+                            RED.tray.close();
                         }
-                        if (node.credentials) {
-                            delete node.credentials;
+                    },
+                    {
+                        id: "node-dialog-cancel",
+                        text: RED._("common.label.cancel"),
+                        click: function() {
+                            RED.tray.close();
                         }
-                    });
-                    RED.nodes.eachConfig(function (confNode) {
-                        if (confNode.credentials) {
-                            delete confNode.credentials;
+                    },
+                    {
+                        id: "node-dialog-ok",
+                        class: "primary",
+                        text: RED._("common.label.done"),
+                        click: function() {
+                            var label = $( "#node-input-name" ).val();
+                            if (project.name != label) {
+                                project.name=label
+                                var element=$('<a href="#'+project.id+'" style="font-size: 1.3em">Project: '+label+'</a>').on("dblclick",onProjectDblClick);
+                                $('#label-projects').empty()
+                                element.appendTo('#label-projects')
+                                var changes = {
+                                    label:project.label()
+                                }
+                                var historyEvent = {
+                                    t: "edit",
+                                    changes:changes,
+                                    node: project,
+                                    dirty: RED.nodes.dirty()
+                                }
+                                RED.history.push(historyEvent);
+                                //workspace_tabs.renameTab(workspace.id,label);
+                                RED.nodes.dirty(true);
+                                RED.sidebar.config.refresh();
+                                $("#menu-item-workspace-menu-"+workspace.id.replace(".","-")).text(label);
+                            }
+                            RED.tray.close();
                         }
-                    });
-                    // Once deployed, cannot undo back to a clean state
-                    RED.history.markAllDirty();
-                    RED.view.redraw();
-                    RED.events.emit("deploy");
-                }).fail(function (xhr, textStatus, err) {
-                    RED.nodes.dirty(true);
-                    if (xhr.status === 401) {
-                        RED.notify(RED._("deploy.deployFailed", {message: RED._("user.notAuthorized")}), "error");
-                    } else if (xhr.responseText) {
-                        RED.notify(RED._("deploy.deployFailed", {message: xhr.responseText}), "error");
-                    } else {
-                        RED.notify(RED._("deploy.deployFailed", {message: RED._("deploy.errors.noResponse")}), "error");
                     }
-                }).always(function () {
-                    $("#btn-deploy-icon").removeClass('spinner');
-                    $("#btn-deploy-icon").addClass('fa-download');
-                });
+                ],
+                open: function(tray) {
+                    var trayBody = tray.find('.editor-tray-body');
+                    var dialogForm = $('<form id="dialog-form" class="form-horizontal"></form>').appendTo(trayBody);
+                    $('<div class="form-row">'+
+                            '<label for="node-input-name" data-i18n="[append]editor:common.label.name"><i class="fa fa-tag"></i> </label>'+
+                            '<input type="text" id="node-input-name">'+
+                            '</div>').appendTo(dialogForm);
+                    $('<input type="text" style="display: none;" />').prependTo(dialogForm);
+                    dialogForm.submit(function(e) { e.preventDefault();});
+                    $("#node-input-name").val(project.label());
+                    dialogForm.i18n();
+                },
+                close: function() {
+                    if (RED.view.state() != RED.state.IMPORT_DRAGGING) {
+                        RED.view.state(RED.state.DEFAULT);
+                    }
+                }
+            }
+            RED.tray.show(trayOptions);
+        }
+
+        function cleanWorkspace() {
+            var workspace = RED.nodes.getWorkspaceOrder()
+            $( '#btn-workspace-add-tab' ).trigger( "click" );
+            while(workspace.length != 1){
+                RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+                RED.tray.close();
+                RED.nodes.removeWorkspace(workspace[0])
+            }
+            RED.nodes.eachConfig(remove)
+            function remove(nn){
+                RED.nodes.remove(nn.id)
             }
         }
-    }
+        function launchFlows(nodes,newproject,add){
+            cleanWorkspace()
+            var workspace = RED.nodes.getWorkspaceOrder()
+            if(workspace.length>0){
+                RED.nodes.import(nodes);
+                var nn=RED.nodes.node(newproject.id)
+                nn.name=newproject.name
+                project=nn
+                RED.nodes.dirty(false);
+                RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+                RED.nodes.removeWorkspace(workspace[0])
+            }else{
+                RED.nodes.import(nodes);
+                RED.nodes.dirty(false);
+            }
+            if(add)
+                RED.nodes.dirty(true)
+            RED.view.redraw(true);
+            RED.workspaces.refresh();
+            RED.sidebar.config.refresh();
+            RED.comms.subscribe("status/#", function (topic, msg) {
+                var parts = topic.split("/");
+                var node = RED.nodes.node(parts[1]);
+                if (node) {
+                    if (msg.hasOwnProperty("text")) {
+                        msg.text = node._(msg.text.toString(), {defaultValue: msg.text.toString()});
+                    }
+                    node.status = msg;
+                    RED.view.redraw();
+                }
+            });
+            RED.comms.subscribe("node/#", function (topic, msg) {
+                var i, m;
+                var typeList;
+                var info;
+
+                if (topic == "node/added") {
+                    var addedTypes = [];
+                    for (i = 0; i < msg.length; i++) {
+                        m = msg[i];
+                        var id = m.id;
+                        RED.nodes.addNodeSet(m);
+                        addedTypes = addedTypes.concat(m.types);
+                        RED.i18n.loadCatalog(id, function () {
+                            $.get('nodes/' + id, function (data) {
+                                $("body").append(data);
+                            });
+                        });
+                    }
+                    if (addedTypes.length) {
+                        typeList = "<ul><li>" + addedTypes.join("</li><li>") + "</li></ul>";
+                        RED.notify(RED._("palette.event.nodeAdded", {count: addedTypes.length}) + typeList, "success");
+                    }
+                } else if (topic == "node/removed") {
+                    for (i = 0; i < msg.length; i++) {
+                        m = msg[i];
+                        info = RED.nodes.removeNodeSet(m.id);
+                        if (info.added) {
+                            typeList = "<ul><li>" + m.types.join("</li><li>") + "</li></ul>";
+                            RED.notify(RED._("palette.event.nodeRemoved", {count: m.types.length}) + typeList, "success");
+                        }
+                    }
+                } else if (topic == "node/enabled") {
+                    if (msg.types) {
+                        info = RED.nodes.getNodeSet(msg.id);
+                        if (info.added) {
+                            RED.nodes.enableNodeSet(msg.id);
+                            typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
+                            RED.notify(RED._("palette.event.nodeEnabled", {count: msg.types.length}) + typeList, "success");
+                        } else {
+                            $.get('nodes/' + msg.id, function (data) {
+                                $("body").append(data);
+                                typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
+                                RED.notify(RED._("palette.event.nodeAdded", {count: msg.types.length}) + typeList, "success");
+                            });
+                        }
+                    }
+                } else if (topic == "node/disabled") {
+                    if (msg.types) {
+                        RED.nodes.disableNodeSet(msg.id);
+                        typeList = "<ul><li>" + msg.types.join("</li><li>") + "</li></ul>";
+                        RED.notify(RED._("palette.event.nodeDisabled", {count: msg.types.length}) + typeList, "success");
+                    }
+                }
+// Refresh flow library to ensure any examples are updated
+                RED.library.loadFlowLibrary();
+            });
+        }
+
+        function loadFlows(value) {
+            $.ajax({
+                headers: {
+                    "Accept": "application/json"
+                },
+                cache: false,
+                url: 'projects/' + value.id,
+                data: {id: value.id},
+                dataType: 'json',
+                success: function (nodes) {
+                    launchFlows(nodes,value)
+                }
+            });
+        }
+
+        function deploy() {
+            var ignoreDeployWarnings = {
+                unknown: false,
+                unusedConfig: false,
+                invalid: false
+            }
+            function sortNodeInfo(A,B) {
+                if (A.tab < B.tab) { return -1;}
+                if (A.tab > B.tab) { return 1;}
+                if (A.type < B.type) { return -1;}
+                if (A.type > B.type) { return 1;}
+                if (A.name < B.name) { return -1;}
+                if (A.name > B.name) { return 1;}
+                return 0;
+            }
+            function getNodeInfo(node) {
+                var tabLabel = "";
+                if (node.z) {
+                    var tab = RED.nodes.workspace(node.z);
+                    if (!tab) {
+                        tab = RED.nodes.subflow(node.z);
+                        tabLabel = tab.name;
+                    } else {
+                        tabLabel = tab.label;
+                    }
+                }
+                var label = "";
+                if (typeof node._def.label == "function") {
+                    label = node._def.label.call(node);
+                } else {
+                    label = node._def.label;
+                }
+                label = label || node.id;
+                return {tab:tabLabel,type:node.type,label:label};
+            }
+            $('#btn-deploy').unbind("click");
+            $('#btn-deploy').click(function () {
+                save();
+            });
+
+            function save(force) {
+                if (RED.nodes.dirty()) {
+                    //$("#debug-tab-clear").click();  // uncomment this to auto clear debug on deploy
+
+                    if (!force) {
+                        var hasUnknown = false;
+                        var hasInvalid = false;
+                        var hasUnusedConfig = false;
+
+                        var unknownNodes = [];
+                        var invalidNodes = [];
+
+                        RED.nodes.eachNode(function (node) {
+                            hasInvalid = hasInvalid || !node.valid;
+                            if (!node.valid) {
+                                invalidNodes.push(getNodeInfo(node));
+                            }
+                            if (node.type === "unknown") {
+                                if (unknownNodes.indexOf(node.name) == -1) {
+                                    unknownNodes.push(node.name);
+                                }
+                            }
+                        });
+                        hasUnknown = unknownNodes.length > 0;
+
+                        var unusedConfigNodes = [];
+                        RED.nodes.eachConfig(function (node) {
+                            if (node.users.length === 0 && (node._def.hasUsers !== false)) {
+                                if(node.type!=='project'){
+                                    unusedConfigNodes.push(getNodeInfo(node));
+                                    hasUnusedConfig = true;
+                                }
+
+                            }
+                        });
+
+                        $("#node-dialog-confirm-deploy-project-config").hide();
+                        $("#node-dialog-confirm-deploy-project-unknown").hide();
+                        $("#node-dialog-confirm-deploy-project-unused").hide();
+
+                        var showWarning = false;
+
+                        if (hasUnknown && !ignoreDeployWarnings.unknown) {
+                            showWarning = true;
+                            $("#node-dialog-confirm-deploy-project-type").val("unknown");
+                            $("#node-dialog-confirm-deploy-project-unknown").show();
+                            $("#node-dialog-confirm-deploy-project-unknown-list")
+                                    .html("<li>" + unknownNodes.join("</li><li>") + "</li>");
+                        } else if (hasInvalid && !ignoreDeployWarnings.invalid) {
+                            showWarning = true;
+                            $("#node-dialog-confirm-deploy-project-type").val("invalid");
+                            $("#node-dialog-confirm-deploy-project-config").show();
+                            invalidNodes.sort(sortNodeInfo);
+                            $("#node-dialog-confirm-deploy-project-invalid-list")
+                                    .html("<li>" + invalidNodes.map(function (A) {
+                                                return (A.tab ? "[" + A.tab + "] " : "") + A.label + " (" + A.type + ")"
+                                            }).join("</li><li>") + "</li>");
+
+                        } else if (hasUnusedConfig && !ignoreDeployWarnings.unusedConfig) {
+                            // showWarning = true;
+                            // $( "#node-dialog-confirm-deploy-type" ).val("unusedConfig");
+                            // $( "#node-dialog-confirm-deploy-unused" ).show();
+                            //
+                            // unusedConfigNodes.sort(sortNodeInfo);
+                            // $( "#node-dialog-confirm-deploy-unused-list" )
+                            //     .html("<li>"+unusedConfigNodes.map(function(A) { return (A.tab?"["+A.tab+"] ":"")+A.label+" ("+A.type+")"}).join("</li><li>")+"</li>");
+                        }
+                        if (showWarning) {
+                            $("#node-dialog-confirm-deploy-project-hide").prop("checked", false);
+                            $("#node-dialog-confirm-deploy-project").dialog("open");
+                            return;
+                        }
+                    }
+
+
+                    var nns = RED.nodes.createCompleteNodeSet();
+                    var projects=nns.filter(function(e){
+                        return e.type==='project'
+                    })
+                    projects[0].name=project.label()
+                    projects[0].flows=[]
+
+                    nns.forEach(function (e, i, a) {
+                        if(e.type!=='project'){
+                            projects[0].flows.push(e.id)
+                        }
+                    })
+
+                    $("#btn-deploy-icon").removeClass('fa-download');
+                    $("#btn-deploy-icon").addClass('spinner');
+                    RED.nodes.dirty(false);
+                    var deploymentTypes = {
+                        "red/images/deploy-full-o.png":"full",
+                        "red/images/deploy-nodes-o.png":"nodes",
+                        "red/images/deploy-flows-o.png":"flows"
+                    }
+                    var deploymentType=deploymentTypes[ $("#btn-deploy img").attr("src")]
+                    $.ajax({
+                        url: "projects",
+                        type: "POST",
+                        data: JSON.stringify(nns),
+                        contentType: "application/json; charset=utf-8",
+                        headers: {
+                            "Node-RED-Deployment-Type": deploymentType
+                        }
+                    }).done(function (data, textStatus, xhr) {
+                        if (hasUnusedConfig) {
+                            RED.notify(
+                                    '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
+                                    '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
+                        } else {
+                            RED.notify(RED._("deploy.successfulDeploy"), "success");
+                        }
+                        RED.nodes.eachNode(function (node) {
+                            if (node.changed) {
+                                node.dirty = true;
+                                node.changed = false;
+                            }
+                            if (node.credentials) {
+                                delete node.credentials;
+                            }
+                        });
+                        RED.nodes.eachConfig(function (confNode) {
+                            if (confNode.credentials) {
+                                delete confNode.credentials;
+                            }
+                        });
+                        // Once deployed, cannot undo back to a clean state
+                        RED.history.markAllDirty();
+                        RED.view.redraw();
+                        RED.events.emit("deploy");
+                    }).fail(function (xhr, textStatus, err) {
+                        RED.nodes.dirty(true);
+                        if (xhr.status === 401) {
+                            RED.notify(RED._("deploy.deployFailed", {message: RED._("user.notAuthorized")}), "error");
+                        } else if (xhr.responseText) {
+                            RED.notify(RED._("deploy.deployFailed", {message: xhr.responseText}), "error");
+                        } else {
+                            RED.notify(RED._("deploy.deployFailed", {message: RED._("deploy.errors.noResponse")}), "error");
+                        }
+                    }).always(function () {
+                        $("#btn-deploy-icon").removeClass('spinner');
+                        $("#btn-deploy-icon").addClass('fa-download');
+                    });
+                }
+            }
+        }
+        return {
+            init: init,
+            getProject: project,
+            loadFlows:loadFlows,
+            cleanWorkspace:cleanWorkspace,
+            deploy:deploy
+
+        }
+
+    })();
 </script>
