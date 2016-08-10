@@ -254,7 +254,9 @@
                     '<a id="btn-projects-options" data-toggle="dropdown" class="btn-info" href="#"><i class="fa fa-caret-down"></i></a>'+
                     '</span></li>').prependTo(".header-toolbar");
             RED.menu.init({id:"btn-projects-options",options:options})
-
+            if(data.length==0){
+                $("#add-project").trigger("click",[true])
+            }
         }
 
         function onProjectDblClick() {
