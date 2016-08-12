@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-multiproject",
-  "version": "0.0.2-3",
+  "version": "0.0.2-4",
   "description": "Multiproject for node-red",
   "main": "multiproject.js",
   "scripts": {
@@ -11,10 +11,12 @@
     "url": "https://github.com/Negrero/node-red-contrib-multiproject.git"
   },
   "author": "Andres Carmona Gil",
-  "contributors":[{
-    "name":"Miguel",
-    "email":"miguel@thingtrack.com"
-  }],
+  "contributors": [
+    {
+      "name": "Miguel",
+      "email": "miguel@thingtrack.com"
+    }
+  ],
   "license": "ISC",
   "node-red": {
     "nodes": {
