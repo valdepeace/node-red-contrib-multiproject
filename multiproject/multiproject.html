@@ -190,7 +190,7 @@
                                         var element=$('<a href="#'+proj.id+'" style="font-size: 1.3em">Project: '+proj.name+'</a>').on("dblclick",onProjectDblClick);
                                         $('#label-projects').empty()
                                         element.appendTo('#label-projects')
-                                        loadFlows(value)}
+                                        loadFlows(proj)}
                                 }
                             })
                             RED.view.redraw(true);
@@ -304,6 +304,7 @@
                         click: function() {
                             var label = $( "#node-input-name" ).val();
                             if (project.name != label) {
+                                $('#'+project.id+' .menu-label').text(label)
                                 project.name=label
                                 var element=$('<a href="#'+project.id+'" style="font-size: 1.3em">Project: '+label+'</a>').on("dblclick",onProjectDblClick);
                                 $('#label-projects').empty()
@@ -361,6 +362,7 @@
                 RED.nodes.remove(nn.id)
             }
         }
+
         function launchFlows(nodes,newproject,add){
             cleanWorkspace()
             var workspace = RED.nodes.getWorkspaceOrder()
@@ -465,6 +467,153 @@
             });
         }
 
+        function save(force) {
+            if (RED.nodes.dirty()) {
+                //$("#debug-tab-clear").click();  // uncomment this to auto clear debug on deploy
+
+                if (!force) {
+                    var hasUnknown = false;
+                    var hasInvalid = false;
+                    var hasUnusedConfig = false;
+
+                    var unknownNodes = [];
+                    var invalidNodes = [];
+
+                    RED.nodes.eachNode(function (node) {
+                        hasInvalid = hasInvalid || !node.valid;
+                        if (!node.valid) {
+                            invalidNodes.push(getNodeInfo(node));
+                        }
+                        if (node.type === "unknown") {
+                            if (unknownNodes.indexOf(node.name) == -1) {
+                                unknownNodes.push(node.name);
+                            }
+                        }
+                    });
+                    hasUnknown = unknownNodes.length > 0;
+
+                    var unusedConfigNodes = [];
+                    RED.nodes.eachConfig(function (node) {
+                        if (node.users.length === 0 && (node._def.hasUsers !== false)) {
+                            if(node.type!=='project'){
+                                unusedConfigNodes.push(getNodeInfo(node));
+                                hasUnusedConfig = true;
+                            }
+
+                        }
+                    });
+
+                    $("#node-dialog-confirm-deploy-project-config").hide();
+                    $("#node-dialog-confirm-deploy-project-unknown").hide();
+                    $("#node-dialog-confirm-deploy-project-unused").hide();
+
+                    var showWarning = false;
+
+                    if (hasUnknown && !ignoreDeployWarnings.unknown) {
+                        showWarning = true;
+                        $("#node-dialog-confirm-deploy-project-type").val("unknown");
+                        $("#node-dialog-confirm-deploy-project-unknown").show();
+                        $("#node-dialog-confirm-deploy-project-unknown-list")
+                                .html("<li>" + unknownNodes.join("</li><li>") + "</li>");
+                    } else if (hasInvalid && !ignoreDeployWarnings.invalid) {
+                        showWarning = true;
+                        $("#node-dialog-confirm-deploy-project-type").val("invalid");
+                        $("#node-dialog-confirm-deploy-project-config").show();
+                        invalidNodes.sort(sortNodeInfo);
+                        $("#node-dialog-confirm-deploy-project-invalid-list")
+                                .html("<li>" + invalidNodes.map(function (A) {
+                                            return (A.tab ? "[" + A.tab + "] " : "") + A.label + " (" + A.type + ")"
+                                        }).join("</li><li>") + "</li>");
+
+                    } else if (hasUnusedConfig && !ignoreDeployWarnings.unusedConfig) {
+                        // showWarning = true;
+                        // $( "#node-dialog-confirm-deploy-type" ).val("unusedConfig");
+                        // $( "#node-dialog-confirm-deploy-unused" ).show();
+                        //
+                        // unusedConfigNodes.sort(sortNodeInfo);
+                        // $( "#node-dialog-confirm-deploy-unused-list" )
+                        //     .html("<li>"+unusedConfigNodes.map(function(A) { return (A.tab?"["+A.tab+"] ":"")+A.label+" ("+A.type+")"}).join("</li><li>")+"</li>");
+                    }
+                    if (showWarning) {
+                        $("#node-dialog-confirm-deploy-project-hide").prop("checked", false);
+                        $("#node-dialog-confirm-deploy-project").dialog("open");
+                        return;
+                    }
+                }
+
+
+                var nns = RED.nodes.createCompleteNodeSet();
+                var projects=nns.filter(function(e){
+                    return e.type==='project'
+                })
+                projects[0].name=project.label()
+                projects[0].flows=[]
+
+                nns.forEach(function (e, i, a) {
+                    if(e.type!=='project'){
+                        projects[0].flows.push(e.id)
+                    }
+                })
+
+                $("#btn-deploy-icon").removeClass('fa-download');
+                $("#btn-deploy-icon").addClass('spinner');
+                RED.nodes.dirty(false);
+                var deploymentTypes = {
+                    "red/images/deploy-full-o.png":"full",
+                    "red/images/deploy-nodes-o.png":"nodes",
+                    "red/images/deploy-flows-o.png":"flows"
+                }
+                var deploymentType=deploymentTypes[ $("#btn-deploy img").attr("src")]
+                $.ajax({
+                    url: "projects",
+                    type: "POST",
+                    data: JSON.stringify(nns),
+                    contentType: "application/json; charset=utf-8",
+                    headers: {
+                        "Node-RED-Deployment-Type": deploymentType
+                    }
+                }).done(function (data, textStatus, xhr) {
+                    if (hasUnusedConfig) {
+                        RED.notify(
+                                '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
+                                '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
+                    } else {
+                        RED.notify(RED._("deploy.successfulDeploy"), "success");
+                    }
+                    RED.nodes.eachNode(function (node) {
+                        if (node.changed) {
+                            node.dirty = true;
+                            node.changed = false;
+                        }
+                        if (node.credentials) {
+                            delete node.credentials;
+                        }
+                    });
+                    RED.nodes.eachConfig(function (confNode) {
+                        if (confNode.credentials) {
+                            delete confNode.credentials;
+                        }
+                    });
+                    // Once deployed, cannot undo back to a clean state
+                    RED.history.markAllDirty();
+                    RED.view.redraw();
+                    RED.events.emit("deploy");
+                }).fail(function (xhr, textStatus, err) {
+                    RED.nodes.dirty(true);
+                    if (xhr.status === 401) {
+                        RED.notify(RED._("deploy.deployFailed", {message: RED._("user.notAuthorized")}), "error");
+                    } else if (xhr.responseText) {
+                        RED.notify(RED._("deploy.deployFailed", {message: xhr.responseText}), "error");
+                    } else {
+                        RED.notify(RED._("deploy.deployFailed", {message: RED._("deploy.errors.noResponse")}), "error");
+                    }
+                }).always(function () {
+                    $("#btn-deploy-icon").removeClass('spinner');
+                    $("#btn-deploy-icon").addClass('fa-download');
+                });
+            }
+        }
+
         function deploy() {
             var ignoreDeployWarnings = {
                 unknown: false,
@@ -505,152 +654,6 @@
                 save();
             });
 
-            function save(force) {
-                if (RED.nodes.dirty()) {
-                    //$("#debug-tab-clear").click();  // uncomment this to auto clear debug on deploy
-
-                    if (!force) {
-                        var hasUnknown = false;
-                        var hasInvalid = false;
-                        var hasUnusedConfig = false;
-
-                        var unknownNodes = [];
-                        var invalidNodes = [];
-
-                        RED.nodes.eachNode(function (node) {
-                            hasInvalid = hasInvalid || !node.valid;
-                            if (!node.valid) {
-                                invalidNodes.push(getNodeInfo(node));
-                            }
-                            if (node.type === "unknown") {
-                                if (unknownNodes.indexOf(node.name) == -1) {
-                                    unknownNodes.push(node.name);
-                                }
-                            }
-                        });
-                        hasUnknown = unknownNodes.length > 0;
-
-                        var unusedConfigNodes = [];
-                        RED.nodes.eachConfig(function (node) {
-                            if (node.users.length === 0 && (node._def.hasUsers !== false)) {
-                                if(node.type!=='project'){
-                                    unusedConfigNodes.push(getNodeInfo(node));
-                                    hasUnusedConfig = true;
-                                }
-
-                            }
-                        });
-
-                        $("#node-dialog-confirm-deploy-project-config").hide();
-                        $("#node-dialog-confirm-deploy-project-unknown").hide();
-                        $("#node-dialog-confirm-deploy-project-unused").hide();
-
-                        var showWarning = false;
-
-                        if (hasUnknown && !ignoreDeployWarnings.unknown) {
-                            showWarning = true;
-                            $("#node-dialog-confirm-deploy-project-type").val("unknown");
-                            $("#node-dialog-confirm-deploy-project-unknown").show();
-                            $("#node-dialog-confirm-deploy-project-unknown-list")
-                                    .html("<li>" + unknownNodes.join("</li><li>") + "</li>");
-                        } else if (hasInvalid && !ignoreDeployWarnings.invalid) {
-                            showWarning = true;
-                            $("#node-dialog-confirm-deploy-project-type").val("invalid");
-                            $("#node-dialog-confirm-deploy-project-config").show();
-                            invalidNodes.sort(sortNodeInfo);
-                            $("#node-dialog-confirm-deploy-project-invalid-list")
-                                    .html("<li>" + invalidNodes.map(function (A) {
-                                                return (A.tab ? "[" + A.tab + "] " : "") + A.label + " (" + A.type + ")"
-                                            }).join("</li><li>") + "</li>");
-
-                        } else if (hasUnusedConfig && !ignoreDeployWarnings.unusedConfig) {
-                            // showWarning = true;
-                            // $( "#node-dialog-confirm-deploy-type" ).val("unusedConfig");
-                            // $( "#node-dialog-confirm-deploy-unused" ).show();
-                            //
-                            // unusedConfigNodes.sort(sortNodeInfo);
-                            // $( "#node-dialog-confirm-deploy-unused-list" )
-                            //     .html("<li>"+unusedConfigNodes.map(function(A) { return (A.tab?"["+A.tab+"] ":"")+A.label+" ("+A.type+")"}).join("</li><li>")+"</li>");
-                        }
-                        if (showWarning) {
-                            $("#node-dialog-confirm-deploy-project-hide").prop("checked", false);
-                            $("#node-dialog-confirm-deploy-project").dialog("open");
-                            return;
-                        }
-                    }
-
-
-                    var nns = RED.nodes.createCompleteNodeSet();
-                    var projects=nns.filter(function(e){
-                        return e.type==='project'
-                    })
-                    projects[0].name=project.label()
-                    projects[0].flows=[]
-
-                    nns.forEach(function (e, i, a) {
-                        if(e.type!=='project'){
-                            projects[0].flows.push(e.id)
-                        }
-                    })
-
-                    $("#btn-deploy-icon").removeClass('fa-download');
-                    $("#btn-deploy-icon").addClass('spinner');
-                    RED.nodes.dirty(false);
-                    var deploymentTypes = {
-                        "red/images/deploy-full-o.png":"full",
-                        "red/images/deploy-nodes-o.png":"nodes",
-                        "red/images/deploy-flows-o.png":"flows"
-                    }
-                    var deploymentType=deploymentTypes[ $("#btn-deploy img").attr("src")]
-                    $.ajax({
-                        url: "projects",
-                        type: "POST",
-                        data: JSON.stringify(nns),
-                        contentType: "application/json; charset=utf-8",
-                        headers: {
-                            "Node-RED-Deployment-Type": deploymentType
-                        }
-                    }).done(function (data, textStatus, xhr) {
-                        if (hasUnusedConfig) {
-                            RED.notify(
-                                    '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
-                                    '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
-                        } else {
-                            RED.notify(RED._("deploy.successfulDeploy"), "success");
-                        }
-                        RED.nodes.eachNode(function (node) {
-                            if (node.changed) {
-                                node.dirty = true;
-                                node.changed = false;
-                            }
-                            if (node.credentials) {
-                                delete node.credentials;
-                            }
-                        });
-                        RED.nodes.eachConfig(function (confNode) {
-                            if (confNode.credentials) {
-                                delete confNode.credentials;
-                            }
-                        });
-                        // Once deployed, cannot undo back to a clean state
-                        RED.history.markAllDirty();
-                        RED.view.redraw();
-                        RED.events.emit("deploy");
-                    }).fail(function (xhr, textStatus, err) {
-                        RED.nodes.dirty(true);
-                        if (xhr.status === 401) {
-                            RED.notify(RED._("deploy.deployFailed", {message: RED._("user.notAuthorized")}), "error");
-                        } else if (xhr.responseText) {
-                            RED.notify(RED._("deploy.deployFailed", {message: xhr.responseText}), "error");
-                        } else {
-                            RED.notify(RED._("deploy.deployFailed", {message: RED._("deploy.errors.noResponse")}), "error");
-                        }
-                    }).always(function () {
-                        $("#btn-deploy-icon").removeClass('spinner');
-                        $("#btn-deploy-icon").addClass('fa-download');
-                    });
-                }
-            }
         }
         return {
             init: init,
