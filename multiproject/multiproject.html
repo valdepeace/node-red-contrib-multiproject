@@ -187,7 +187,7 @@
                             nodes.push(proj)
                             nodes.push(tab)
                             RED.menu.addItem("btn-projects-options",{
-                                id:proj.id,
+                                id:"id-"+proj.id.split(".").join("-"),
                                 label:proj.name,
                                 onselect:function(s) {
                                     if(s===undefined || s){
@@ -290,18 +290,7 @@
                         class: 'leftButton',//+((workspace_tabs.count() == 1)?" disabled":""),
                         text: RED._("common.label.delete"), //'<i class="fa fa-trash"></i>',
                         click: function() {
-                            var projects=$("#btn-projects-options-submenu li")
-                            projects.each(function(){
-                                var element=$(this)
-                                var link=$(this).find('a')
-                                if(link.attr("id")===project.id)
-                                    element.remove()
-                            })
-                            if(projects.length-1===1){
-                                $("#add-project").trigger("click",[true])
-                            }else{
-                                $('#btn-projects-options-submenu li:nth-child(2)').find('a').trigger("click",[true])
-                            }
+
                             //deleteWorkspace(workspace);
                             var nns = RED.nodes.createCompleteNodeSet();
                             var projects=nns.filter(function(e){
@@ -326,13 +315,15 @@
                                     "project":JSON.stringify(projects[0])
                                 }
                             }).done(function (data, textStatus, xhr) {
-                                if (hasUnusedConfig) {
-                                    RED.notify(
-                                            '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
-                                            '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
-                                } else {
-                                    RED.notify(RED._("deploy.successfulDeploy"), "success");
+                                $('a#id-'+project.id.split(".").join("-")).parent().remove()
+
+                                var projects=$("#btn-projects-options-submenu li")
+                                if(projects.length===1){
+                                    $("#add-project").trigger("click",[true])
+                                }else{
+                                    $('#btn-projects-options-submenu li:nth-child(2)').find('a').trigger("click",[true])
                                 }
+                                RED.notify("Delete project true", "success");
                                 RED.nodes.eachNode(function (node) {
                                     if (node.changed) {
                                         node.dirty = true;
