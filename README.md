@@ -4,14 +4,14 @@ This node-red package extension transform node-red in a mutiproject mode. We can
 
 This extension add the project name and a new visual combo list in the header of the node-red editor where we can create a new project or select one. To change the default name of the project double click in the project tittle and fill the name of it.
 
-## to install the node-red package extension:
+To install the node-red package extension:
 ```
 npm install node-red-contrib-multiproject
 ```
 
-To manage the relation between the projects and the flows, we add a new invisible node with a new type called 'project' in the default file of node-red, where we can mantein the name and the flow nodes of it. And example 
+To manage the relation between the projects and the flows, we add a new invisible node with a new type called 'project' in the default file of node-red, where we can mantein the name and the flow nodes of it. 
 
-### nodes create example
+And example of this node could be:
 
 ```
 [ ...
