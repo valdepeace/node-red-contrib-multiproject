@@ -123,6 +123,7 @@
                                 $('#btn-projects-options-submenu li:nth-child(2)').find('a').trigger("click",[true])
                             }
                             //deleteWorkspace(workspace);
+
                             RED.tray.close();
                             $( this ).dialog( "close" );
                         }
@@ -177,6 +178,9 @@
                                 label: "Flow 1"
                             }
                             var element=$('<a href="#'+proj.id+'" style="font-size: 1.3em">Project: '+proj.name+'</a>').on("dblclick",onProjectDblClick);
+                            element.on("click",function(){
+                                event.preventDefault();
+                                return false})
                             $('#label-projects').empty()
                             element.appendTo('#label-projects')
                             var nodes = []
@@ -188,6 +192,9 @@
                                 onselect:function(s) {
                                     if(s===undefined || s){
                                         var element=$('<a href="#'+proj.id+'" style="font-size: 1.3em">Project: '+proj.name+'</a>').on("dblclick",onProjectDblClick);
+                                        element.on("click",function(){
+                                            event.preventDefault();
+                                            return false})
                                         $('#label-projects').empty()
                                         element.appendTo('#label-projects')
                                         loadFlows(proj)}
@@ -203,10 +210,12 @@
                 }
 
             })
+
             $.each(data, function (key, value) {
+
                 if(selected){
                     options.push({
-                                id:value.id,
+                                id:"id-"+value.id.split(".").join("-"),
                                 label: value.name,
                                 onselect:function(s) {
                                     if(s===undefined || s) {
@@ -215,6 +224,9 @@
                                             return;
                                         } else {
                                             var element = $('<a href="#' + value.id + '" style="font-size: 1.3em">Project: ' + value.name + '</a>').on("dblclick", onProjectDblClick);
+                                            element.on("click",function(){
+                                                event.preventDefault();
+                                                return false})
                                             $('#label-projects').empty()
                                             element.appendTo('#label-projects')
                                             loadFlows(value)
@@ -228,7 +240,7 @@
                 }else{
                     selected=true
                     options.push({
-                        id:value.id,
+                        id:"id-"+value.id.split(".").join("-"),
                         label: value.name,
                         selected: true,
                         onselect:function(s) {
@@ -238,6 +250,9 @@
                                     return;
                                 }else {
                                     var element = $('<a href="#' + value.id + '" style="font-size: 1.3em">Project: ' + value.name + '</a>').on("dblclick", onProjectDblClick);
+                                    element.on("click",function(){
+                                        event.preventDefault();
+                                        return false})
                                     $('#label-projects').empty()
                                     element.appendTo('#label-projects')
                                     loadFlows(value)
@@ -248,6 +263,7 @@
 
                     )
                 }
+
             });
             $('<li><span class="projects-button-group button-group">'+
                     '<a id="btn-projects" href="#" class="btn-info" ><span>Projects</span></a>'+
@@ -287,6 +303,67 @@
                                 $('#btn-projects-options-submenu li:nth-child(2)').find('a').trigger("click",[true])
                             }
                             //deleteWorkspace(workspace);
+                            var nns = RED.nodes.createCompleteNodeSet();
+                            var projects=nns.filter(function(e){
+                                return e.type==='project'
+                            })
+                            projects[0].name=project.label()
+                            projects[0].flows=[]
+
+                            nns.forEach(function (e, i, a) {
+                                if(e.type!=='project'){
+                                    projects[0].flows.push(e.id)
+                                }
+                            })
+                            var deploymentType="flows"
+                            $.ajax({
+                                url: "projects",
+                                type: "POST",
+                                data: JSON.stringify([]),
+                                contentType: "application/json; charset=utf-8",
+                                headers: {
+                                    "Node-RED-Deployment-Type": deploymentType,
+                                    "project":JSON.stringify(projects[0])
+                                }
+                            }).done(function (data, textStatus, xhr) {
+                                if (hasUnusedConfig) {
+                                    RED.notify(
+                                            '<p>' + RED._("deploy.successfulDeploy") + '</p>' +
+                                            '<p>' + RED._("deploy.unusedConfigNodes") + ' <a href="#" onclick="RED.sidebar.config.show(true); return false;">' + RED._("deploy.unusedConfigNodesLink") + '</a></p>', "success", false, 6000);
+                                } else {
+                                    RED.notify(RED._("deploy.successfulDeploy"), "success");
+                                }
+                                RED.nodes.eachNode(function (node) {
+                                    if (node.changed) {
+                                        node.dirty = true;
+                                        node.changed = false;
+                                    }
+                                    if (node.credentials) {
+                                        delete node.credentials;
+                                    }
+                                });
+                                RED.nodes.eachConfig(function (confNode) {
+                                    if (confNode.credentials) {
+                                        delete confNode.credentials;
+                                    }
+                                });
+                                // Once deployed, cannot undo back to a clean state
+                                RED.history.markAllDirty();
+                                RED.view.redraw();
+                                RED.events.emit("deploy");
+                            }).fail(function (xhr, textStatus, err) {
+                                RED.nodes.dirty(true);
+                                if (xhr.status === 401) {
+                                    RED.notify(RED._("deploy.deployFailed", {message: RED._("user.notAuthorized")}), "error");
+                                } else if (xhr.responseText) {
+                                    RED.notify(RED._("deploy.deployFailed", {message: xhr.responseText}), "error");
+                                } else {
+                                    RED.notify(RED._("deploy.deployFailed", {message: RED._("deploy.errors.noResponse")}), "error");
+                                }
+                            }).always(function () {
+                                $("#btn-deploy-icon").removeClass('spinner');
+                                $("#btn-deploy-icon").addClass('fa-download');
+                            });
                             RED.tray.close();
                         }
                     },
@@ -304,7 +381,6 @@
                         click: function() {
                             var label = $( "#node-input-name" ).val();
                             if (project.name != label) {
-                                $('#'+project.id+' .menu-label').text(label)
                                 project.name=label
                                 var element=$('<a href="#'+project.id+'" style="font-size: 1.3em">Project: '+label+'</a>').on("dblclick",onProjectDblClick);
                                 $('#label-projects').empty()
@@ -325,6 +401,8 @@
                                 $("#menu-item-workspace-menu-"+workspace.id.replace(".","-")).text(label);
                             }
                             RED.tray.close();
+                            var e=$('#btn-projects-options-submenu li').find('a#id-'+project.id.split(".").join("-"))//#id-'+project.id.split("."))
+                            e.text(label)
                         }
                     }
                 ],
@@ -564,6 +642,7 @@
                     "red/images/deploy-flows-o.png":"flows"
                 }
                 var deploymentType=deploymentTypes[ $("#btn-deploy img").attr("src")]
+
                 $.ajax({
                     url: "projects",
                     type: "POST",
