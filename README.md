@@ -2,7 +2,8 @@
 
 This node-red package extension transform node-red in a mutiproject mode. We can group several flows in a set called project and manage different projects at the same time. 
 
-This extension add the project name and a new visual combo list in the header of the node-red editor where we can create a new project or select one. To change the default name of the project double click in the project tittle and fill the name of it.
+This extension add the project name and a new visual combo list in the header of the node-red editor where we can create a new project,
+remove or select one. To change the default name of the project double click in the project tittle and fill the name of it.
 
 To install the node-red package extension:
 ```
