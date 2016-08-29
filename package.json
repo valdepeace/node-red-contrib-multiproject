@@ -10,6 +10,15 @@
     "type": "git",
     "url": "https://github.com/Negrero/node-red-contrib-multiproject.git"
   },
+  "bugs": {
+    "url": "https://github.com/Negrero/node-red-contrib-multiproject/issues"
+  },
+  "keywords": [
+    "node-red",
+    "node-red-contrib",
+    "project",
+    "multiproject"
+  ],
   "author": "Andres Carmona Gil",
   "contributors": [
     {
@@ -17,7 +26,13 @@
       "email": "miguel@thingtrack.com"
     }
   ],
-  "license": "ISC",
+  "maintainers": [
+    {
+      "name": "Andres Carmona",
+      "email": "valdepeace@gmail.com"
+    }
+  ],
+  "license": "Apache-2.0",
   "node-red": {
     "nodes": {
       "multiporject": "multiproject/multiproject.js"
