@@ -130,7 +130,7 @@ module.exports=function(RED) {
         } else {
             req.body = flows
             // hostname and port of header request object
-            var url=urlparse.parse(req.headers.origin)
+            var url=urlParse.parse(req.headers.origin)
             var options = {
                 host: url.hostname,
                 path: '/flows',
@@ -139,7 +139,6 @@ module.exports=function(RED) {
                     "node-red-deployment-type":"full",
                     "cache-control": "no-cache",
                     "content-type": "application/json; charset=utf-8"
-
                 },
                 method: 'POST'
             };
