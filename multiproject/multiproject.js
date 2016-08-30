@@ -3,6 +3,7 @@
  */
 
 http =require('http')
+urlParse=require('url')
 
 module.exports=function(RED) {
 
@@ -128,13 +129,14 @@ module.exports=function(RED) {
             });
         } else {
             req.body = flows
-            //res.redirect(307,'/flows')
+            // hostname and port of header request object
+            var url=urlparse.parse(req.headers.origin)
             var options = {
-                host: "localhost",
+                host: url.hostname,
                 path: '/flows',
-                port: '1880',
+                port: url.port,
                 headers: {
-                    "node-red-deployment-type": "full",
+                    "node-red-deployment-type":"full",
                     "cache-control": "no-cache",
                     "content-type": "application/json; charset=utf-8"
 
