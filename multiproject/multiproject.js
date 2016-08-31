@@ -142,6 +142,10 @@ module.exports=function(RED) {
                 },
                 method: 'POST'
             };
+
+            if(req.headers.authorization)
+                options.headers.authorization=req.headers.authorization
+
             var callback = function (response) {
                 var str = ''
                 response.on('data', function (chunk) {
