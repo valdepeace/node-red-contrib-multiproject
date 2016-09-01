@@ -132,7 +132,7 @@ module.exports=function(RED) {
             var url=req.headers.host.split(":")
             var options = {
                 host: url[0],
-                path: '/flows',
+                path: (RED.settings.httpAdminRoot==="/")?'/flows':RED.settings.httpAdminRoot+'/flows',
                 port: url[1],
                 headers: {
                     "node-red-deployment-type":"full",
@@ -146,18 +146,16 @@ module.exports=function(RED) {
             if(req.headers.authorization)
                 options.headers.authorization=req.headers.authorization
 
-            var callback = function (response) {
+            var callback = function(response) {
                 var str = ''
                 response.on('data', function (chunk) {
                     str += chunk;
                 });
 
                 response.on('end', function () {
-                    res.status(204).end();
-                    //log.warn(log._("api.flows.error-save",{message:err.message}));
-                    //log.warn(err.stack);
-                    //res.status(500).json({error:"unexpected_error", message:err.message});
+                    res.status(this.statusCode).end(str)
                 });
+
             }
 
             var request = http.request(options, callback);
