@@ -132,7 +132,7 @@ module.exports=function(RED) {
             var url=req.headers.host.split(":")
             var options = {
                 host: url[0],
-                path: '/flows',
+                path: RED.settings.httpAdminRoot + '/flows',
                 port: url[1],
                 headers: {
                     "node-red-deployment-type":"full",
