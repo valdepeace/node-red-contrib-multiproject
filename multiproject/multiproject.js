@@ -44,7 +44,7 @@ module.exports=function(RED) {
         projects.flows.forEach(function (el, ix, ar) {
             function allnodes(no) {
                 if (no.type !== "tab") {
-                    if (no.z == el)
+                    if (no.z == el || no.z === "")
                         nodesProjects.push(no)
                 } else {
                     if (no.id == el)
