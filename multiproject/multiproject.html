@@ -143,7 +143,7 @@
                         click: function() {
                             var ignoreChecked = $( "#node-dialog-confirm-deploy-project-hide" ).prop("checked");
                             if (ignoreChecked) {
-                                ignoreDeployWarnings[$( "#node-dialog-confirm-deploy-project-type" ).val()] = true;
+                                deploy.ignoreDeployWarnings[$( "#node-dialog-confirm-deploy-project-type" ).val()] = true;
                             }
                             save(true);
                             $( this ).dialog( "close" );
@@ -587,13 +587,13 @@
 
                     var showWarning = false;
 
-                    if (hasUnknown && !ignoreDeployWarnings.unknown) {
+                    if (hasUnknown && !deploy.ignoreDeployWarnings.unknown) {
                         showWarning = true;
                         $("#node-dialog-confirm-deploy-project-type").val("unknown");
                         $("#node-dialog-confirm-deploy-project-unknown").show();
                         $("#node-dialog-confirm-deploy-project-unknown-list")
                                 .html("<li>" + unknownNodes.join("</li><li>") + "</li>");
-                    } else if (hasInvalid && !ignoreDeployWarnings.invalid) {
+                    } else if (hasInvalid && !deploy.ignoreDeployWarnings.invalid) {
                         showWarning = true;
                         $("#node-dialog-confirm-deploy-project-type").val("invalid");
                         $("#node-dialog-confirm-deploy-project-config").show();
@@ -603,7 +603,7 @@
                                             return (A.tab ? "[" + A.tab + "] " : "") + A.label + " (" + A.type + ")"
                                         }).join("</li><li>") + "</li>");
 
-                    } else if (hasUnusedConfig && !ignoreDeployWarnings.unusedConfig) {
+                    } else if (hasUnusedConfig && !deploy.ignoreDeployWarnings.unusedConfig) {
                         // showWarning = true;
                         // $( "#node-dialog-confirm-deploy-type" ).val("unusedConfig");
                         // $( "#node-dialog-confirm-deploy-unused" ).show();
@@ -693,12 +693,6 @@
             }
         }
 
-        function deploy() {
-            var ignoreDeployWarnings = {
-                unknown: false,
-                unusedConfig: false,
-                invalid: false
-            }
             function sortNodeInfo(A,B) {
                 if (A.tab < B.tab) { return -1;}
                 if (A.tab > B.tab) { return 1;}
@@ -708,6 +702,7 @@
                 if (A.name > B.name) { return 1;}
                 return 0;
             }
+
             function getNodeInfo(node) {
                 var tabLabel = "";
                 if (node.z) {
@@ -727,6 +722,13 @@
                 }
                 label = label || node.id;
                 return {tab:tabLabel,type:node.type,label:label};
+            }
+
+        function deploy() {
+            deploy.ignoreDeployWarnings = {
+                unknown: false,
+                unusedConfig: false,
+                invalid: false
             }
             $('#btn-deploy').unbind("click");
             $('#btn-deploy').click(function () {
