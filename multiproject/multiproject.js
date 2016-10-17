@@ -78,6 +78,17 @@ module.exports=function(RED) {
     RED.httpAdmin.post("/projects", function (req, res) {
 
         var flows = req.body;
+        var actualProjectId=""
+        flows.forEach(function(e){
+            if (e.type==='project')
+                actualProjectId=e.id
+        })
+        var flowsOtherProjects=[]
+        function getProjects(no){
+            if(no.type=='project' && no.id!=actualProjectId)
+                flowsOtherProjects=(no.flows)?flowsOtherProjects.concat(no.flows):flowsOtherProjects
+        }
+        RED.nodes.eachNode(getProjects)
         /*
          var project=flows.filter(function(e){
          return e.type==='project'
@@ -93,12 +104,20 @@ module.exports=function(RED) {
             var delete_project = JSON.parse(req.get("project"))
         }
 
-        function allnodes(no) {
+        function allnodes(no,i,a) {
             var exist = flows.filter(function (e) {
                 return e.id === no.id
             })
-            if (exist.length == 0)
+            var existOldFlows=flowsOtherProjects.filter(function(e){
+                return e==no.id
+            })
+            if ((exist.length > 0 && existOldFlows > 0)){
                 flows.push(no)
+            }else{
+                if(no.type=='project')
+                    flows.push(no)
+            }
+
         }
 
         function delete_nodes(no, i, a) {
