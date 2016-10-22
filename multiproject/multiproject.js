@@ -40,32 +40,20 @@ module.exports=function(RED) {
                 projects = node
         }
 
-        RED.nodes.eachNode(findProject)
-        projects.flows.forEach(function (el, ix, ar) {
-            function allnodes(no) {
-                if (no.type !== "tab") {
-                    if (no.z == el || no.z === "")
-                        nodesProjects.push(no)
-                } else {
-                    if (no.id == el)
-                        nodesProjects.push(no)
-                }
-            }
+        RED.nodes.eachNode(findProject) // find project activo
 
-            RED.nodes.eachNode(allnodes)
-            /*
-             var tab=RED.nodes.getNode(el);
-             if(tab===null){
-             nodesProjects.push({id:el.id,label:el.label,type:el.type})
-             }else{
-             nodesProjects.push({id:tab.id,label:tab.label,type:"tab"})
-             if(tab.configs)
-             nodesProjects=nodesProjects.concat(tab.configs)
-             nodesProjects=nodesProjects.concat(tab.nodes)
-             }
-             */
-        })
-        if (nodesProjects.length === 0)
+        function allnodes(no) {
+            var exist = projects.flows.filter(function (el) {
+                return no.z == el || no.id == el
+
+            })
+            if (exist.length > 0)
+                nodesProjects.push(no)
+        }
+
+        RED.nodes.eachNode(allnodes) //get nodes for projects
+
+        if (nodesProjects.length === 0) // new tab if not exists for client
             nodesProjects.push({
                 type: "tab",
                 id: RED.util.generateId(),
