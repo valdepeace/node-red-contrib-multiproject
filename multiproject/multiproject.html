@@ -79,6 +79,7 @@
             cache: false,
             url: 'projects',
             success: function(data) {
+                RED.projects.cleanWorkspace();
                 RED.projects.init(data);
             }
 
