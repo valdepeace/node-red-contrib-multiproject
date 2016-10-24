@@ -66,46 +66,13 @@ module.exports=function(RED) {
     RED.httpAdmin.post("/projects", function (req, res) {
 
         var flows = req.body;
-        var actualProjectId=""
-        flows.forEach(function(e){
-            if (e.type==='project')
-                actualProjectId=e.id
-        })
-        var flowsOtherProjects=[]
-        function getProjects(no){
-            if(no.type=='project' && no.id!=actualProjectId)
-                flowsOtherProjects=(no.flows)?flowsOtherProjects.concat(no.flows):flowsOtherProjects
-        }
-        RED.nodes.eachNode(getProjects)
-        /*
-         var project=flows.filter(function(e){
-         return e.type==='project'
-         })
-         var tabs=flows.reduce(function(tabs,e,i,a){
-         if(actual.type==='tab')
-         tabs.push(actual.id)
-         },[])
-         project[0].flows=tabs
-         */
+
+
+
+
         var deploymentType = req.get("Node-RED-Deployment-Type") || "full";
         if (req.get("project")) {
             var delete_project = JSON.parse(req.get("project"))
-        }
-
-        function allnodes(no,i,a) {
-            var exist = flows.filter(function (e) {
-                return e.id === no.id
-            })
-            var existOldFlows=flowsOtherProjects.filter(function(e){
-                return e==no.id
-            })
-            if ((exist.length > 0 && existOldFlows > 0)){
-                flows.push(no)
-            }else{
-                if(no.type=='project')
-                    flows.push(no)
-            }
-
         }
 
         function delete_nodes(no, i, a) {
@@ -121,8 +88,6 @@ module.exports=function(RED) {
         if (delete_project) {
             RED.nodes.eachNode(delete_nodes)
 
-        } else {
-            RED.nodes.eachNode(allnodes)
         }
         log.audit({event: "flows.set", type: deploymentType}, req);
         if (deploymentType === 'reload') {
@@ -164,9 +129,76 @@ module.exports=function(RED) {
                 });
 
             }
+            var flowsLaunch={}
+            function getFlowsLaunch(no){
+                if(no.type=='project'){
+                    flowsLaunch[no.id]={
+                        flows:no.flows.reduce(function(flow,el){
+                            flow[el]={}
+                            return flow
+                        },{})
+                    }
+                }
+            }
+            RED.nodes.eachNode(getFlowsLaunch)
+            var flowsClient={}
+            function getFlowsClient(no){
+                if(no.type=='project'){
+                    flowsClient[no.id]={
+                        flows:no.flows.reduce(function(flow,el){
+                            flow[el]={}
+                            return flow
+                        },{})
+                    }
+                }
+            }
+            RED.nodes.eachNode(getFlowsClient)
+            var flowSave=[]
+            for (var key_launch in flowsLaunch){
+                if (flowsClient[key_launch]!==undefined){
+                    flowSave[key_launch]={}
+                    for(var key_flow in flowsClient[key_launch].flows){
+                        flowSave[key_flow]={}
+                    }
+                    delete flowsClient[key_launch]
+                }else{
+                    flowSave[key_launch]={}
+                    for(var key_flow in flowsLaunch[key_launch]){
+                        flowSave[key_flow]={}
+                    }
 
+                }
+            }
+            for (var key_client in flowsClient){
+                flowSave[key_client]={}
+                for(var key_flow in flowsClient){
+                    flowSave[key_flow]={}
+                }
+            }
+            var nodeSave=[]
+
+            function getNodeSave(no){
+                var node_body=req.body.filter(function(e){
+                    return e.id==no.id
+                })
+                if(node_body.length>0){
+                    nodeSave.push(node_body[0])
+                }else{
+                    if(flowSave[no.id]!==undefined){
+                        nodeSave.push(no)
+                    }
+                }
+            }
+            RED.nodes.eachNode(getNodeSave)
+            req.body.forEach(function(e){
+                var exists=nodeSave.filter(function(el){
+                    return e.id==el.id
+                })
+                if(exists.length===0)
+                    nodeSave.push(e)
+            })
             var request = http.request(options, callback);
-            request.write(JSON.stringify(flows))
+            request.write(JSON.stringify(nodeSave))
             request.end();
 
         }
