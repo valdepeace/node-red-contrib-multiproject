@@ -2,8 +2,9 @@
  * Created by Andres Carmona Gil for Thingtrack,sl on 02/08/2016.
  */
 
-http =require('http')
-
+var http = require('http');
+var zlib = require('zlib');
+var request = require('request')
 module.exports=function(RED) {
 
     log = RED.log
@@ -20,16 +21,58 @@ module.exports=function(RED) {
 
     RED.httpAdmin.get("/projects", function (req, res) {
         var projects = []
+        var token=req.headers.authorization.split(" ")[1]
 
-        function allnodes(no) {
-            if (no.type == "project")
-                projects.push(no)
+        if(RED.settings.adminAuth){
+            var options = {
+                uri: 'http://localhost:4000/api/Customers/getProjectsCustomers',
+                method: 'POST',
+                json: {
+                    "token": token
+                }
+            };
+            request(options, function (error, response, projects_sensor) {
+                function allnodes_users(no) {
+                    if (no.type == "project"){
+                        if(projects_sensor!==undefined){
+                            var exist=projects_sensor.projects.filter(function(e){
+                                return e.id===no.id
+                            })
+                            if(exist.length>0)
+                                projects.push(no)
+                        }
+                    }
+                }
+                if(!error && response.statusCode==200){
+                    RED.nodes.eachNode(allnodes_users)
+                    return res.json(projects);
+                }else{
+                    return res.status(404).send((error)?error:"error desconocido")
+                }
+
+            });
+        }else{
+            function allnodes(no) {
+                if (no.type == "project")
+                    projects.push(no)
+            }
+            RED.nodes.eachNode(allnodes)
+            return res.json(projects);
         }
 
-        RED.nodes.eachNode(allnodes)
-        res.json(projects);
+        /*
+         getProjetsCustomers(token, function(err,projects_sensor){
+         if(err)
+         return res.status(404).send(err)
 
+         if(projects_sensor!==undefined){
+
+         }
+
+         })
+         */
     })
+
     RED.httpAdmin.get("/projects/:id", function (req, res) {
         var id = req.params.id;
         var projects
@@ -203,4 +246,6 @@ module.exports=function(RED) {
 
         }
     })
+
+
 }
