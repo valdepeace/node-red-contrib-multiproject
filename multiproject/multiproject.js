@@ -110,9 +110,6 @@ module.exports=function(RED) {
 
         var flows = req.body;
 
-
-
-
         var deploymentType = req.get("Node-RED-Deployment-Type") || "full";
         if (req.get("project")) {
             var delete_project = JSON.parse(req.get("project"))
@@ -173,73 +170,42 @@ module.exports=function(RED) {
 
             }
             var flowsLaunch={}
+            var flowSave={}
             function getFlowsLaunch(no){
                 if(no.type=='project'){
-                    flowsLaunch[no.id]={
-                        flows:no.flows.reduce(function(flow,el){
-                            flow[el]={}
-                            return flow
-                        },{})
+                    var exists=flows.filter(function(el){
+                        return el.id === no.id
+                    })
+                    if(exists.length===0){
+                        flowSave[no.id]={}
+                        no.flows.forEach(function(el){
+                            flowSave[el]={}
+                        })
                     }
+
                 }
             }
             RED.nodes.eachNode(getFlowsLaunch)
-            var flowsClient={}
-            function getFlowsClient(no){
-                if(no.type=='project'){
-                    flowsClient[no.id]={
-                        flows:no.flows.reduce(function(flow,el){
-                            flow[el]={}
-                            return flow
-                        },{})
-                    }
-                }
-            }
-            RED.nodes.eachNode(getFlowsClient)
-            var flowSave=[]
-            for (var key_launch in flowsLaunch){
-                if (flowsClient[key_launch]!==undefined){
-                    flowSave[key_launch]={}
-                    for(var key_flow in flowsClient[key_launch].flows){
-                        flowSave[key_flow]={}
-                    }
-                    delete flowsClient[key_launch]
-                }else{
-                    flowSave[key_launch]={}
-                    for(var key_flow in flowsLaunch[key_launch]){
-                        flowSave[key_flow]={}
-                    }
 
+            var flowsClient={}
+
+            flows.forEach(function(e){
+                if(e.type==='project'){
+                    flowSave[e.id]={}
+                    e.flows.forEach(function(e){
+                        flowSave[e]={}
+                    })
                 }
-            }
-            for (var key_client in flowsClient){
-                flowSave[key_client]={}
-                for(var key_flow in flowsClient){
-                    flowSave[key_flow]={}
-                }
-            }
+            })
+
             var nodeSave=[]
 
             function getNodeSave(no){
-                var node_body=req.body.filter(function(e){
-                    return e.id==no.id
-                })
-                if(node_body.length>0){
-                    nodeSave.push(node_body[0])
-                }else{
-                    if(flowSave[no.id]!==undefined){
-                        nodeSave.push(no)
-                    }
-                }
+                if(flowSave[no.id]!==undefined)
+                    nodeSave.push(no)
+
             }
             RED.nodes.eachNode(getNodeSave)
-            req.body.forEach(function(e){
-                var exists=nodeSave.filter(function(el){
-                    return e.id==el.id
-                })
-                if(exists.length===0)
-                    nodeSave.push(e)
-            })
             var request = http.request(options, callback);
             request.write(JSON.stringify(nodeSave))
             request.end();
