@@ -5,6 +5,7 @@
 var http = require('http');
 var zlib = require('zlib');
 var request = require('request');
+var loopback=require('node-sensor-red-loopback');
 
 module.exports=function(RED) {
 
@@ -21,6 +22,16 @@ module.exports=function(RED) {
     RED.nodes.registerType("project", Multiproject);
 
     RED.httpAdmin.get("/projects", function (req, res) {
+        var projects = []
+
+        function allnodes(no) {
+            if (no.type == "project")
+                projects.push(no)
+        }
+
+        RED.nodes.eachNode(allnodes)
+        res.json(projects);
+        /*
         var projects = []
         if(RED.settings.adminAuth){
             if(req.headers)
@@ -49,6 +60,14 @@ module.exports=function(RED) {
                     RED.nodes.eachNode(allnodes_users)
                     return res.json(projects);
                 }else{
+                    // param (ctx,token,cb)
+                    loopback.models.Customer.getProjectsCustomers(null,{"token":token},function(err, projects){
+                        if(err){
+                            resolve(null)
+                        }else{
+                            resolve(projects)
+                        }
+                    })
                     return res.status(404).send((error)?error:"error desconocido")
                 }
 
@@ -61,7 +80,7 @@ module.exports=function(RED) {
             RED.nodes.eachNode(allnodes)
             return res.json(projects);
         }
-
+*/
         /*
          getProjetsCustomers(token, function(err,projects_sensor){
          if(err)
