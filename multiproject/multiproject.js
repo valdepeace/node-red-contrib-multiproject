@@ -22,16 +22,7 @@ module.exports=function(RED) {
     RED.nodes.registerType("project", Multiproject);
 
     RED.httpAdmin.get("/projects", function (req, res) {
-        var projects = []
 
-        function allnodes(no) {
-            if (no.type == "project")
-                projects.push(no)
-        }
-
-        RED.nodes.eachNode(allnodes)
-        res.json(projects);
-        /*
         var projects = []
         if(RED.settings.adminAuth){
             if(req.headers)
@@ -80,7 +71,7 @@ module.exports=function(RED) {
             RED.nodes.eachNode(allnodes)
             return res.json(projects);
         }
-*/
+
         /*
          getProjetsCustomers(token, function(err,projects_sensor){
          if(err)
@@ -106,13 +97,16 @@ module.exports=function(RED) {
 
         RED.nodes.eachNode(findProject) // find project activo
 
-        function allnodes(no) {
-            var exist = projects.flows.filter(function (el) {
-                return no.z == el || no.id == el
+        if(projects.flows){
+            function allnodes(no) {
+                var exist = projects.flows.filter(function (el) {
+                    return no.z == el || no.id == el
 
-            })
-            if (exist.length > 0)
-                nodesProjects.push(no)
+                })
+                if (exist.length > 0)
+                    nodesProjects.push(no)
+            }
+            RED.nodes.eachNode(allnodes) //get nodes for projects
         }
 
         RED.nodes.eachNode(allnodes) //get nodes for projects
@@ -126,6 +120,7 @@ module.exports=function(RED) {
         nodesProjects.push(projects)
         res.json(nodesProjects)
     })
+
 
     RED.httpAdmin.post("/projects", function (req, res) {
 
@@ -192,40 +187,35 @@ module.exports=function(RED) {
             }
             var flowsLaunch={}
             var flowSave={}
+            // integrate flows runtime except flows client launch
             function getFlowsLaunch(no){
                 if(no.type=='project'){
                     var exists=flows.filter(function(el){
                         return el.id === no.id
                     })
                     if(exists.length===0){
-                        flowSave[no.id]={}
+                        flowsLaunch[no.id]={}
                         no.flows.forEach(function(el){
-                            flowSave[el]={}
+                            flowsLaunch[el]={}
                         })
                     }
 
                 }
             }
             RED.nodes.eachNode(getFlowsLaunch)
-
-            var flowsClient={}
-
-            flows.forEach(function(e){
-                if(e.type==='project'){
-                    flowSave[e.id]={}
-                    e.flows.forEach(function(e){
-                        flowSave[e]={}
-                    })
-                }
-            })
-
             var nodeSave=[]
-
+            // get nodes luanch runtime negative flows of launch in client and add flows get client
             function getNodeSave(no){
-                if(flowSave[no.id]!==undefined)
+                if(flowsLaunch[no.id]!==undefined)
                     nodeSave.push(no)
-
             }
+            RED.nodes.eachNode(getNodeSave)
+
+            var flowsNews={}
+            // add flows client launch
+            flows.forEach(function(e){
+                nodeSave.push(e)
+            })
             RED.nodes.eachNode(getNodeSave)
             var request = http.request(options, callback);
             request.write(JSON.stringify(nodeSave))
