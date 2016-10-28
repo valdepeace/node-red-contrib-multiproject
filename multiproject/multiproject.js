@@ -4,7 +4,8 @@
 
 var http = require('http');
 var zlib = require('zlib');
-var request = require('request')
+var request = require('request');
+
 module.exports=function(RED) {
 
     log = RED.log
@@ -21,9 +22,10 @@ module.exports=function(RED) {
 
     RED.httpAdmin.get("/projects", function (req, res) {
         var projects = []
-        var token=req.headers.authorization.split(" ")[1]
-
         if(RED.settings.adminAuth){
+            if(req.headers)
+                if(req.req.authorization)
+                    var token=req.headers.authorization.split(" ")[1]
             var options = {
                 uri: 'http://localhost:4000/api/Customers/getProjectsCustomers',
                 method: 'POST',
