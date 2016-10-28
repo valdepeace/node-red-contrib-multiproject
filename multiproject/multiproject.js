@@ -109,7 +109,6 @@ module.exports=function(RED) {
             RED.nodes.eachNode(allnodes) //get nodes for projects
         }
 
-        RED.nodes.eachNode(allnodes) //get nodes for projects
 
         if (nodesProjects.length === 0) // new tab if not exists for client
             nodesProjects.push({

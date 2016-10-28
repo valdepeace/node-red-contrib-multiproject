@@ -452,13 +452,18 @@
             cleanWorkspace()
             var workspace = RED.nodes.getWorkspaceOrder()
             if(workspace.length>0){
-                RED.nodes.import(nodes);
-                var nn=RED.nodes.node(newproject.id)
-                nn.name=newproject.name
-                project=nn
-                RED.nodes.dirty(false);
-                RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
-                RED.nodes.removeWorkspace(workspace[0])
+                var exists_workspace=newproject.flows.filter(function(e){
+                    return e === workspace[0]
+                })
+                if(exists_workspace.length===0){
+                    RED.nodes.import(nodes);
+                    var nn=RED.nodes.node(newproject.id)
+                    nn.name=newproject.name
+                    project=nn
+                    RED.nodes.dirty(false);
+                    RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+                    RED.nodes.removeWorkspace(workspace[0])
+                }
             }else{
                 RED.nodes.import(nodes);
                 RED.nodes.dirty(false);
