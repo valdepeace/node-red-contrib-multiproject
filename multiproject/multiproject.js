@@ -24,7 +24,7 @@ module.exports=function(RED) {
         var projects = []
         if(RED.settings.adminAuth){
             if(req.headers)
-                if(req.req.authorization)
+                if(req.headers.authorization)
                     var token=req.headers.authorization.split(" ")[1]
             var options = {
                 uri: 'http://localhost:4000/api/Customers/getProjectsCustomers',
