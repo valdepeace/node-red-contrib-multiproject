@@ -33,6 +33,11 @@
     }
   ],
   "license": "Apache-2.0",
+  "dependencies": {
+    "mongodb": "^2.2.5",
+    "when": "^3.7.7",
+    "request":"2.76.0"
+  },
   "node-red": {
     "nodes": {
       "multiporject": "multiproject/multiproject.js"
