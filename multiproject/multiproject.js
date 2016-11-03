@@ -28,81 +28,42 @@ module.exports=function(RED) {
             if(req.headers)
                 if(req.headers.authorization)
                     var token=req.headers.authorization.split(" ")[1]
-            var options = {
-                uri: 'http://localhost:4000/api/Customers/getProjectsCustomers',
-                method: 'POST',
-                json: {
-                    "token": token
-                }
-            };
-            request(options, function (error, response, projects_sensor) {
-                function allnodes_users(no) {
-                    if (no.type == "project"){
-                        if(projects_sensor!==undefined){
-                            var exist=projects_sensor.projects.filter(function(e){
-                                return e.id===no.id
-                            })
-                            if(exist.length>0)
-                                projects.push(no)
-                        }
-                    }
-                }
-                if(!error && response.statusCode==200){
-                    RED.nodes.eachNode(allnodes_users)
-                    return res.json(projects);
+            // param (ctx,token,cb)
+            loopback.models.Customer.getProjectsCustomers(null,{"token":token},function(err, projects){
+                if(err){
+                    resolve(null)
                 }else{
-                    // param (ctx,token,cb)
-                    loopback.models.Customer.getProjectsCustomers(null,{"token":token},function(err, projects){
-                        if(err){
-                            resolve(null)
-                        }else{
-                            resolve(projects)
-                        }
-                    })
-                    return res.status(404).send((error)?error:"error desconocido")
+                    resolve(projects)
                 }
-
             });
         }else{
             function allnodes(no) {
                 if (no.type == "project")
                     projects.push(no)
             }
-            RED.nodes.eachNode(allnodes)
+            RED.nodes.eachNode(allnodes);
             return res.json(projects);
         }
-
-        /*
-         getProjetsCustomers(token, function(err,projects_sensor){
-         if(err)
-         return res.status(404).send(err)
-
-         if(projects_sensor!==undefined){
-
-         }
-
-         })
-         */
-    })
+    });
 
     RED.httpAdmin.get("/projects/:id", function (req, res) {
         var id = req.params.id;
-        var projects
-        var nodesProjects = []
+        var projects;
+        var nodesProjects = [];
 
         function findProject(node) {
             if (id == node.id)
                 projects = node
         }
 
-        RED.nodes.eachNode(findProject) // find project activo
+        RED.nodes.eachNode(findProject);// find project activo
 
         if(projects.flows){
             function allnodes(no) {
                 var exist = projects.flows.filter(function (el) {
                     return no.z == el || no.id == el
 
-                })
+                });
                 if (exist.length > 0)
                     nodesProjects.push(no)
             }
