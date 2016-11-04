@@ -99,6 +99,7 @@
         var project = {}
 
         function init(data) {
+            cleanWorkspace()
             $("#node-dialog-confirm-deploy").after(
                     '<div id="node-dialog-confirm-deploy-project" class="hide">'+
                     '<form class="form-horizontal">'+
@@ -298,8 +299,9 @@
         function showRenameProjectDialog(id) {
             //project = RED.nodes.node(id);
             RED.view.state(RED.state.EDITING);
+            var title = project.label || project.label();
             var trayOptions = {
-                title: "Edit project: "+project.label(),
+                title: "Edit project: "+title,
                 buttons: [
                     {
                         id: "node-dialog-delete",
@@ -312,7 +314,7 @@
                             var projects=nns.filter(function(e){
                                 return e.type==='project'
                             })
-                            projects[0].name=project.label()
+                            projects[0].name = title
                             projects[0].flows=[]
 
                             nns.forEach(function (e, i, a) {
@@ -393,7 +395,7 @@
                                 $('#label-projects').empty()
                                 element.appendTo('#label-projects')
                                 var changes = {
-                                    label:project.label()
+                                    label: title
                                 }
                                 var historyEvent = {
                                     t: "edit",
@@ -422,7 +424,7 @@
                             '</div>').appendTo(dialogForm);
                     $('<input type="text" style="display: none;" />').prependTo(dialogForm);
                     dialogForm.submit(function(e) { e.preventDefault();});
-                    $("#node-input-name").val(project.label());
+                    $("#node-input-name").val(title);
                     dialogForm.i18n();
                 },
                 close: function() {
@@ -435,21 +437,28 @@
         }
 
         function cleanWorkspace() {
-            var workspace = RED.nodes.getWorkspaceOrder()
-            $( '#btn-workspace-add-tab' ).trigger( "click" );
-            while(workspace.length != 1){
-                RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+            var workspace = RED.nodes.getWorkspaceOrder();
+            var removeWorkspace = []
+            workspace.forEach(function (e) {
+                removeWorkspace.push(e)
+
+            })
+            $('#btn-workspace-add-tab').trigger("click");
+            removeWorkspace.forEach(function (e) {
+                RED.workspaces.remove(RED.nodes.workspace(e));
                 RED.tray.close();
-                RED.nodes.removeWorkspace(workspace[0])
-            }
+                RED.nodes.removeWorkspace(e);
+            })
+
             RED.nodes.eachConfig(remove)
             function remove(nn){
                 RED.nodes.remove(nn.id)
             }
+            RED.nodes.dirty(false);
         }
 
         function launchFlows(nodes,newproject,add){
-            cleanWorkspace()
+            //cleanWorkspace()
             var workspace = RED.nodes.getWorkspaceOrder()
             if(workspace.length>0){
                 var exists_workspace=newproject.flows.filter(function(e){
@@ -458,11 +467,17 @@
                 if(exists_workspace.length===0){
                     RED.nodes.import(nodes);
                     var nn=RED.nodes.node(newproject.id)
-                    nn.name=newproject.name
-                    project=nn
-                    RED.nodes.dirty(false);
-                    RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
-                    RED.nodes.removeWorkspace(workspace[0])
+                    if(nn){
+                        nn.name=newproject.name
+                        project=nn
+                    }else{
+                        project=newproject
+                    }
+                    if(workspace.length>1){
+                        RED.nodes.dirty(false);
+                        RED.workspaces.remove(RED.nodes.workspace(workspace[0]))
+                        RED.nodes.removeWorkspace(workspace[0])
+                    }
                 }
             }else{
                 RED.nodes.import(nodes);
@@ -639,15 +654,34 @@
                 var projects=nns.filter(function(e){
                     return e.type==='project'
                 })
-                projects[0].name=project.label()
-                projects[0].flows=[]
+                if(projects.length>1){
+                    projects[0].name = (typeof project.label === 'function')?project.label():project.label;
+                    projects[0].flows=[]
+                }else{
+                    projects.push({
+                        id: project.id,
+                        name: (typeof project.label === 'function') ? project.label() : project.label,
+                        label: (typeof project.label === 'function') ? project.label() : project.label,
+                        type: "project",
+                        flows: []
+                    })
+                }
+
 
                 nns.forEach(function (e, i, a) {
                     if(e.type!=='project'){
                         projects[0].flows.push(e.id)
                     }
                 })
-
+                var exist=false
+                nns.forEach(function (e, i, a) {
+                    if(e.type==='project'){
+                        exist=true
+                        e.flow=projects[0].flows
+                    }
+                })
+                if(!exist)
+                    nns.push(projects[0])
                 $("#btn-deploy-icon").removeClass('fa-download');
                 $("#btn-deploy-icon").addClass('spinner');
                 RED.nodes.dirty(false);
